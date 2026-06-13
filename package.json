@@ -1,0 +1,39 @@
+{
+  "name": "asistenciadoc",
+  "private": true,
+  "version": "1.0.0",
+  "description": "PWA de control de asistencia docente - Preparatoria 21, Universidad de Guadalajara",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "deploy": "vite build && vercel --prod",
+    "icons": "node scripts/generate-icons.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hot-toast": "^2.6.0",
+    "react-router-dom": "^6.30.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.20",
+    "@types/react-dom": "^18.3.6",
+    "@vitejs/plugin-react": "^4.5.0",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17",
+    "typescript": "~5.8.3",
+    "vite": "^6.3.5",
+    "vite-plugin-pwa": "^1.0.0",
+    "workbox-background-sync": "^7.4.1",
+    "workbox-cacheable-response": "^7.4.1",
+    "workbox-core": "^7.4.1",
+    "workbox-expiration": "^7.4.1",
+    "workbox-precaching": "^7.4.1",
+    "workbox-routing": "^7.4.1",
+    "workbox-strategies": "^7.4.1"
+  }
+}

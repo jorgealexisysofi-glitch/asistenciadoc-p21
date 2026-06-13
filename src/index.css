@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-fondo font-sans text-gray-800 antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-udeg-naranja px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-udeg-naranja-dark focus:outline-none focus:ring-2 focus:ring-udeg-naranja focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-udeg-azul px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-udeg-azul-dark focus:outline-none focus:ring-2 focus:ring-udeg-azul focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-udeg-naranja focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 placeholder-gray-400 focus:border-udeg-naranja focus:outline-none focus:ring-1 focus:ring-udeg-naranja;
+  }
+
+  .card {
+    @apply rounded-2xl border border-gray-100 bg-white p-5 shadow-sm;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+}

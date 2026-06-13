@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(node --version)",
+      "PowerShell(npm --version)",
+      "PowerShell($r = Invoke-WebRequest -Uri http://localhost:5173/ -UseBasicParsing; $r.StatusCode; $r.Content.Substring\\(0, 400\\))",
+      "mcp__Claude_Preview__preview_start",
+      "PowerShell(Stop-Process -Id 6888 -Force -Confirm:$false; Start-Sleep -Seconds 1; \\(Test-NetConnection -ComputerName localhost -Port 5173 -WarningAction SilentlyContinue\\).TcpTestSucceeded)",
+      "PowerShell(npm run build; if \\($?\\) { Get-ChildItem -Recurse -File src, public, supabase, scripts | Select-Object -ExpandProperty FullName | ForEach-Object { $_.Replace\\(\"$PWD\\\\\", ''\\) } })",
+      "PowerShell(npm run build)"
+    ]
+  }
+}

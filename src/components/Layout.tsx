@@ -1,0 +1,56 @@
+import type { ReactNode } from 'react'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
+import Logo from './Logo'
+
+const linkBase =
+  'rounded-lg px-3 py-2 text-sm font-semibold transition-colors'
+
+function navClass({ isActive }: { isActive: boolean }) {
+  return `${linkBase} ${
+    isActive
+      ? 'bg-udeg-naranja-light text-udeg-naranja'
+      : 'text-gray-600 hover:bg-gray-100'
+  }`
+}
+
+export default function Layout({ children }: { children: ReactNode }) {
+  const { rol, signOut } = useAuth()
+  const navigate = useNavigate()
+
+  async function handleSignOut() {
+    await signOut()
+    navigate('/', { replace: true })
+  }
+
+  return (
+    <div className="min-h-screen bg-fondo">
+      <header className="sticky top-0 z-10 border-b border-gray-100 bg-white">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
+          <Logo size={36} withText />
+          <button
+            onClick={handleSignOut}
+            className="rounded-lg px-3 py-2 text-sm font-semibold text-gray-500 transition-colors hover:bg-gray-100 hover:text-udeg-naranja"
+          >
+            Salir
+          </button>
+        </div>
+        <nav className="mx-auto flex max-w-3xl gap-1 overflow-x-auto px-4 pb-3">
+          <NavLink to="/home" className={navClass}>
+            Inicio
+          </NavLink>
+          <NavLink to="/validar" className={navClass}>
+            Validar
+          </NavLink>
+          {rol === 'admin' && (
+            <NavLink to="/admin" className={navClass}>
+              Panel admin
+            </NavLink>
+          )}
+        </nav>
+      </header>
+
+      <main className="mx-auto max-w-3xl px-4 py-6 pb-16">{children}</main>
+    </div>
+  )
+}
