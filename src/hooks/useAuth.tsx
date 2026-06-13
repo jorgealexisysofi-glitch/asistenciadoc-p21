@@ -29,6 +29,8 @@ interface AuthContextValue {
   signOut: () => Promise<void>
   /** Envía el correo de recuperación de contraseña */
   resetPassword: (email: string) => Promise<{ error: string | null }>
+  /** Recarga la ficha del profesor en el contexto (p. ej. tras cambiar contraseña) */
+  refreshProfesor: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -133,9 +135,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function refreshProfesor() {
+    if (!session) return
+    setProfesor(await fetchProfesor(session.user.id))
+  }
+
   return (
     <AuthContext.Provider
-      value={{ user, session, profesor, rol, loading, signIn, signOut, resetPassword }}
+      value={{
+        user,
+        session,
+        profesor,
+        rol,
+        loading,
+        signIn,
+        signOut,
+        resetPassword,
+        refreshProfesor,
+      }}
     >
       {children}
     </AuthContext.Provider>

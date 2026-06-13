@@ -3,10 +3,11 @@ import toast from 'react-hot-toast'
 import AdminLayout from '../components/AdminLayout'
 import Modal from '../components/Modal'
 import { SkeletonTable } from '../components/Skeleton'
-import { IconChevronDown, IconPencil, IconPlus, IconTrash } from '../components/icons'
+import { IconChevronDown, IconKey, IconPencil, IconPlus, IconTrash } from '../components/icons'
+import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { formatHora } from '../lib/asistencia'
-import type { Aula, Horario, Materia, Profesor } from '../types'
+import type { Aula, Horario, Materia, Profesor, Rol } from '../types'
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 
@@ -47,6 +48,7 @@ const HORARIO_VACIO: FormHorario = {
 }
 
 export default function AdminProfesores() {
+  const { user } = useAuth()
   const [profesores, setProfesores] = useState<Profesor[]>([])
   const [materias, setMaterias] = useState<Materia[]>([])
   const [aulas, setAulas] = useState<Aula[]>([])
@@ -57,6 +59,14 @@ export default function AdminProfesores() {
   // Modal de profesor (alta/edición)
   const [editando, setEditando] = useState<Profesor | 'nuevo' | null>(null)
   const [form, setForm] = useState<FormProfesor>(FORM_VACIO)
+
+  // Modal de confirmación de reseteo de contraseña
+  const [resetTarget, setResetTarget] = useState<Profesor | null>(null)
+
+  // Modal de confirmación de cambio de rol
+  const [rolTarget, setRolTarget] = useState<{ profesor: Profesor; nuevoRol: Rol } | null>(
+    null
+  )
 
   // Fila expandida con horarios
   const [expandido, setExpandido] = useState<string | null>(null)
@@ -202,6 +212,42 @@ export default function AdminProfesores() {
     setWorking(false)
   }
 
+  async function confirmarReset() {
+    if (!resetTarget?.user_id) return
+    setWorking(true)
+    const { data, error } = await supabase.functions.invoke('reset-profesor-password', {
+      body: { profesor_id: resetTarget.id, user_id: resetTarget.user_id },
+    })
+    if (error || (data && data.error)) {
+      toast.error('No se pudo resetear la contraseña.')
+    } else {
+      toast.success('Contraseña reseteada correctamente')
+      await cargar()
+    }
+    setResetTarget(null)
+    setWorking(false)
+  }
+
+  async function confirmarRol() {
+    if (!rolTarget?.profesor.user_id) return
+    setWorking(true)
+    const { data, error } = await supabase.functions.invoke('set-profesor-rol', {
+      body: { user_id: rolTarget.profesor.user_id, rol: rolTarget.nuevoRol },
+    })
+    if (error || (data && data.error)) {
+      toast.error('No se pudo cambiar el rol.')
+    } else {
+      toast.success(
+        rolTarget.nuevoRol === 'admin'
+          ? 'Ahora es administrador.'
+          : 'Permisos de administrador retirados.'
+      )
+      await cargar()
+    }
+    setRolTarget(null)
+    setWorking(false)
+  }
+
   // ---------- Alta / edición / borrado de horarios ----------
 
   function abrirHorario(profesorId: string, horario: Horario | null) {
@@ -305,6 +351,7 @@ export default function AdminProfesores() {
                 <th className="px-4 py-3 font-semibold">Nombre</th>
                 <th className="px-4 py-3 font-semibold">Correo</th>
                 <th className="px-4 py-3 font-semibold">No. empleado</th>
+                <th className="px-4 py-3 font-semibold">Rol</th>
                 <th className="px-4 py-3 font-semibold">Estado</th>
                 <th className="px-4 py-3 text-right font-semibold">Acciones</th>
               </tr>
@@ -312,7 +359,7 @@ export default function AdminProfesores() {
             <tbody>
               {profesores.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                     No hay profesores registrados todavía.
                   </td>
                 </tr>
@@ -330,6 +377,9 @@ export default function AdminProfesores() {
                     onNuevoHorario={() => abrirHorario(p.id, null)}
                     onEditarHorario={(h) => abrirHorario(p.id, h)}
                     onEliminarHorario={(h) => void eliminarHorario(h)}
+                    onResetPassword={() => setResetTarget(p)}
+                    onCambiarRol={(nuevoRol) => setRolTarget({ profesor: p, nuevoRol })}
+                    esUsuarioActual={p.user_id != null && p.user_id === user?.id}
                   />
                 ))
               )}
@@ -494,6 +544,91 @@ export default function AdminProfesores() {
           </button>
         </form>
       </Modal>
+
+      {/* Modal de confirmación de reseteo de contraseña */}
+      <Modal
+        open={resetTarget !== null}
+        title="Resetear contraseña"
+        onClose={() => setResetTarget(null)}
+      >
+        <div className="flex flex-col gap-4">
+          <div className="space-y-2 text-sm text-gray-600">
+            <p className="font-semibold text-gray-800">
+              ¿Resetear contraseña de {resetTarget?.nombre} {resetTarget?.apellidos}?
+            </p>
+            <p>
+              Se restablecerá a la contraseña temporal:{' '}
+              <span className="font-mono font-semibold text-udeg-naranja">Prepa21@2026</span>
+            </p>
+            <p>El profesor deberá cambiarla en su próximo inicio de sesión.</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setResetTarget(null)}
+              disabled={working}
+              className="btn-ghost flex-1"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => void confirmarReset()}
+              disabled={working}
+              className="btn-primary flex-1"
+            >
+              {working ? 'Reseteando…' : 'Resetear'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal de confirmación de cambio de rol */}
+      <Modal
+        open={rolTarget !== null}
+        title={rolTarget?.nuevoRol === 'admin' ? 'Hacer administrador' : 'Quitar administrador'}
+        onClose={() => setRolTarget(null)}
+      >
+        <div className="flex flex-col gap-4">
+          <div className="space-y-2 text-sm text-gray-600">
+            {rolTarget?.nuevoRol === 'admin' ? (
+              <>
+                <p className="font-semibold text-gray-800">
+                  ¿Convertir a {rolTarget?.profesor.nombre} {rolTarget?.profesor.apellidos} en
+                  administrador?
+                </p>
+                <p>Tendrá acceso completo al panel de administración.</p>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold text-gray-800">
+                  ¿Quitar permisos de administrador a {rolTarget?.profesor.nombre}{' '}
+                  {rolTarget?.profesor.apellidos}?
+                </p>
+                <p>Solo tendrá acceso como profesor regular.</p>
+              </>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setRolTarget(null)}
+              disabled={working}
+              className="btn-ghost flex-1"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => void confirmarRol()}
+              disabled={working}
+              className="btn-primary flex-1"
+            >
+              {working ? 'Guardando…' : 'Confirmar'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </AdminLayout>
   )
 }
@@ -511,6 +646,10 @@ interface FilaProps {
   onNuevoHorario: () => void
   onEditarHorario: (h: Horario) => void
   onEliminarHorario: (h: Horario) => void
+  onResetPassword: () => void
+  onCambiarRol: (nuevoRol: Rol) => void
+  /** El profesor de esta fila es el admin que está usando la app */
+  esUsuarioActual: boolean
 }
 
 function ProfesorFila({
@@ -524,7 +663,11 @@ function ProfesorFila({
   onNuevoHorario,
   onEditarHorario,
   onEliminarHorario,
+  onResetPassword,
+  onCambiarRol,
+  esUsuarioActual,
 }: FilaProps) {
+  const esAdmin = p.admin
   return (
     <>
       <tr
@@ -547,6 +690,15 @@ function ProfesorFila({
         <td className="px-4 py-3">
           <span
             className={`badge ${
+              esAdmin ? 'bg-udeg-azul-light text-udeg-azul' : 'bg-gray-100 text-gray-500'
+            }`}
+          >
+            {esAdmin ? 'Admin' : 'Profesor'}
+          </span>
+        </td>
+        <td className="px-4 py-3">
+          <span
+            className={`badge ${
               p.activo ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'
             }`}
           >
@@ -565,6 +717,32 @@ function ProfesorFila({
             >
               <IconPencil className="h-4 w-4" />
             </button>
+            {p.user_id && (
+              <button
+                onClick={onResetPassword}
+                aria-label={`Resetear contraseña de ${p.nombre} ${p.apellidos}`}
+                title="Resetear contraseña"
+                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-udeg-naranja-light hover:text-udeg-naranja"
+              >
+                <IconKey className="h-4 w-4" />
+              </button>
+            )}
+            {p.user_id && (
+              <button
+                onClick={() => onCambiarRol(esAdmin ? 'profesor' : 'admin')}
+                disabled={working || esUsuarioActual}
+                title={
+                  esUsuarioActual
+                    ? 'No puedes cambiar tu propio rol'
+                    : esAdmin
+                      ? 'Quitar permisos de administrador'
+                      : 'Convertir en administrador'
+                }
+                className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-udeg-azul transition-colors hover:bg-udeg-azul-light disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {esAdmin ? 'Quitar Admin' : 'Hacer Admin'}
+              </button>
+            )}
             <button
               onClick={onToggleActivo}
               disabled={working}
@@ -578,7 +756,7 @@ function ProfesorFila({
 
       {expandido && (
         <tr className="border-b border-gray-50 bg-fondo/60">
-          <td colSpan={5} className="px-4 py-4">
+          <td colSpan={6} className="px-4 py-4">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                 Horarios de {p.nombre}

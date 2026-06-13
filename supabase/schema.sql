@@ -23,6 +23,7 @@ create table if not exists public.profesores (
   activo          boolean not null default true,
   admin           boolean not null default false,
   pin             text check (pin is null or pin ~ '^[0-9]{4}$'),  -- PIN para registro manual
+  password_temporal boolean not null default true,  -- obliga a cambiar contraseña al 1er login
   created_at      timestamptz not null default now(),
   user_id         uuid unique references auth.users (id) on delete set null
 );
@@ -30,6 +31,7 @@ create table if not exists public.profesores (
 -- Para bases creadas con una versión anterior del esquema
 alter table public.profesores add column if not exists admin boolean not null default false;
 alter table public.profesores add column if not exists pin text;
+alter table public.profesores add column if not exists password_temporal boolean not null default true;
 
 comment on table public.profesores is 'Personal docente de la Preparatoria 21';
 comment on column public.profesores.user_id is 'Vincula al usuario de Supabase Auth; null hasta que el profesor active su cuenta';

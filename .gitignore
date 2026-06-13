@@ -11,6 +11,9 @@ dev-dist
 .env.local
 .env.*.local
 
+# Credenciales generadas (contienen contraseñas temporales)
+credenciales_temporales.csv
+
 # Logs
 *.log
 npm-debug.log*

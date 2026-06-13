@@ -108,3 +108,12 @@ export function IconTrash(props: IconProps) {
     </svg>
   )
 }
+
+export function IconKey(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="8" cy="8" r="4.5" />
+      <path d="m11.2 11.2 8.3 8.3M16 16l2-2M18.5 18.5l1.5-1.5" />
+    </svg>
+  )
+}

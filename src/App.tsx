@@ -5,6 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import InstallBanner from './components/InstallBanner'
 import ConnectionWatcher from './components/ConnectionWatcher'
 import Login from './pages/Login'
+import CambiarPassword from './pages/CambiarPassword'
 import ProfesorHome from './pages/ProfesorHome'
 import ValidarAsistencia from './pages/ValidarAsistencia'
 import Admin from './pages/Admin'
@@ -18,6 +19,14 @@ export default function App() {
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/" element={<Login />} />
+          <Route
+            path="/cambiar-password"
+            element={
+              <ProtectedRoute skipPasswordCheck>
+                <CambiarPassword />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/home"
             element={
