@@ -182,19 +182,41 @@ export default function AdminProfesores() {
     }
 
     if (editando === 'nuevo') {
-      // Solo se crea la ficha (user_id queda null). La cuenta de acceso de Auth
-      // requiere la service role key y se genera aparte con invitar_profesores.js,
-      // que también vincula el user_id por correo.
+      const correoDuplicado = 'Ya existe un profesor registrado con ese correo electrónico'
+
+      // 1. Verificar de antemano si el correo ya está registrado
+      const { data: existente, error: errBusca } = await supabase
+        .from('profesores')
+        .select('id')
+        .eq('correo', datos.correo)
+        .maybeSingle()
+      if (errBusca) {
+        setAviso({ tipo: 'error', mensaje: 'No se pudo verificar el correo. Intenta de nuevo.' })
+        toast.error('No se pudo verificar el correo.')
+        setWorking(false)
+        return
+      }
+      if (existente) {
+        setAviso({ tipo: 'error', mensaje: correoDuplicado })
+        toast.error(correoDuplicado)
+        setWorking(false)
+        return
+      }
+
+      // 2. Insertar. Solo se crea la ficha (user_id queda null); la cuenta de Auth
+      //    se genera aparte con invitar_profesores.js, que vincula el user_id.
       const { error } = await supabase.from('profesores').insert(datos)
       if (error) {
-        setAviso({
-          tipo: 'error',
-          mensaje:
-            error.code === '23505'
-              ? 'Ya existe un profesor con ese correo o número de empleado.'
-              : 'No se pudo crear el profesor.',
-        })
-        toast.error('No se pudo crear el profesor.')
+        // 3. Fallback: 23505 = violación de unicidad (correo o número de empleado),
+        //    el 409 Conflict que devuelve Supabase si el registro se creó entre medias.
+        const esDuplicado = error.code === '23505'
+        const mensaje = esDuplicado
+          ? error.message.includes('numero_empleado')
+            ? 'Ya existe un profesor con ese número de empleado.'
+            : correoDuplicado
+          : 'No se pudo crear el profesor.'
+        setAviso({ tipo: 'error', mensaje })
+        toast.error(mensaje)
         setWorking(false)
         return
       }
