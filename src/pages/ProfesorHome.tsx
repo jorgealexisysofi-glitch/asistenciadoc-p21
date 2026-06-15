@@ -4,23 +4,17 @@ import Layout from '../components/Layout'
 import EstadoBadge from '../components/EstadoBadge'
 import { Skeleton, SkeletonCards } from '../components/Skeleton'
 import { useAuth } from '../hooks/useAuth'
-import { horaActual, supabase } from '../lib/supabase'
-import {
-  diaSemanaISO,
-  formatHora,
-  formatHoraRegistro,
-  minutosHasta,
-  saludo,
-} from '../lib/asistencia'
-import type { Horario, RegistroAsistencia } from '../types'
+import { horaActual, hoyISO, supabase } from '../lib/supabase'
+import { formatHora, formatHoraRegistro, minutosHasta, saludo } from '../lib/asistencia'
+import type { HistorialItem, ProximaClase } from '../types'
 
 /** Minutos de anticipación con que se avisa la siguiente clase */
 const AVISO_PROXIMA_MIN = 15
 
 export default function ProfesorHome() {
   const { profesor } = useAuth()
-  const [proxima, setProxima] = useState<Horario | null>(null)
-  const [registros, setRegistros] = useState<RegistroAsistencia[]>([])
+  const [proxima, setProxima] = useState<ProximaClase | null>(null)
+  const [registros, setRegistros] = useState<HistorialItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   // Refresca cada 30 s para que el aviso de próxima clase aparezca solo
@@ -36,32 +30,25 @@ export default function ProfesorHome() {
     setLoading(true)
     setError(null)
 
+    // RPCs SECURITY DEFINER: el profesor entra por NIP (sin sesión de Supabase),
+    // así que pasamos su id en vez de depender de auth.uid().
     const [resProxima, resRegistros] = await Promise.all([
-      // Siguiente bloque de hoy que aún no termina
-      supabase
-        .from('horarios')
-        .select('*, materia:materias(nombre, clave), aula:aulas(nombre, edificio)')
-        .eq('profesor_id', profesorId)
-        .eq('dia_semana', diaSemanaISO())
-        .eq('activo', true)
-        .gt('hora_fin', horaActual())
-        .order('hora_inicio', { ascending: true })
-        .limit(1),
-      supabase
-        .from('registros_asistencia')
-        .select(
-          '*, aula:aulas(nombre, edificio), horario:horarios(hora_inicio, hora_fin, materia:materias(nombre))'
-        )
-        .eq('profesor_id', profesorId)
-        .order('hora_registro', { ascending: false })
-        .limit(5),
+      supabase.rpc('get_proxima_clase', {
+        p_profesor_id: profesorId,
+        p_fecha: hoyISO(),
+        p_hora: horaActual(),
+      }),
+      supabase.rpc('get_historial_profesor', {
+        p_profesor_id: profesorId,
+        p_limit: 5,
+      }),
     ])
 
     if (resProxima.error || resRegistros.error) {
       setError('No se pudo cargar tu información. Intenta de nuevo.')
     } else {
-      setProxima(((resProxima.data ?? []) as Horario[])[0] ?? null)
-      setRegistros((resRegistros.data ?? []) as RegistroAsistencia[])
+      setProxima(((resProxima.data ?? []) as ProximaClase[])[0] ?? null)
+      setRegistros((resRegistros.data ?? []) as HistorialItem[])
     }
     setLoading(false)
   }, [profesorId])
@@ -144,11 +131,11 @@ export default function ProfesorHome() {
             ) : (
               <div className="mt-3">
                 <p className="text-lg font-bold text-udeg-azul">
-                  {proxima.materia?.nombre ?? 'Clase'}
+                  {proxima.materia_nombre ?? 'Clase'}
                 </p>
                 <p className="text-sm text-gray-500">
-                  {proxima.aula?.nombre ?? ''}
-                  {proxima.aula?.edificio ? ` · ${proxima.aula.edificio}` : ''} ·{' '}
+                  {proxima.aula_nombre ?? ''}
+                  {proxima.edificio ? ` · ${proxima.edificio}` : ''} ·{' '}
                   {formatHora(proxima.hora_inicio)}–{formatHora(proxima.hora_fin)}
                 </p>
               </div>
@@ -177,10 +164,10 @@ export default function ProfesorHome() {
                   <li key={r.id} className="card flex items-center justify-between py-3.5">
                     <div>
                       <p className="text-sm font-semibold text-gray-800">
-                        {r.horario?.materia?.nombre ?? 'Clase'} · {r.fecha}
+                        {r.materia_nombre ?? 'Clase'} · {r.fecha}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {r.aula?.nombre ?? ''} · {formatHoraRegistro(r.hora_registro)} ·{' '}
+                        {r.aula_nombre ?? ''} · {formatHoraRegistro(r.hora_registro)} ·{' '}
                         {r.metodo_deteccion === 'manual'
                           ? 'Manual'
                           : `Beacon ${r.metodo_deteccion}`}

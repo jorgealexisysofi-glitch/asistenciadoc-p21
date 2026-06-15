@@ -7,8 +7,8 @@ import Spinner from '../components/Spinner'
 import { useAuth } from '../hooks/useAuth'
 import { useBeaconDetection } from '../hooks/useBeaconDetection'
 import { horaActual, hoyISO, supabase } from '../lib/supabase'
-import { calcularEstado, formatHora, TOLERANCIA_MIN } from '../lib/asistencia'
-import type { HorarioActivo, MetodoDeteccion, RegistroAsistencia } from '../types'
+import { formatHora, TOLERANCIA_MIN } from '../lib/asistencia'
+import type { HorarioActivo, MetodoDeteccion, RegistroClase } from '../types'
 
 type Resultado = { tipo: 'ok' | 'error' | 'info'; mensaje: string } | null
 
@@ -16,7 +16,7 @@ export default function ValidarAsistencia() {
   const { profesor } = useAuth()
   const [reloj, setReloj] = useState(new Date())
   const [horario, setHorario] = useState<HorarioActivo | null>(null)
-  const [registro, setRegistro] = useState<RegistroAsistencia | null>(null)
+  const [registro, setRegistro] = useState<RegistroClase | null>(null)
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
   const [resultado, setResultado] = useState<Resultado>(null)
@@ -52,13 +52,12 @@ export default function ValidarAsistencia() {
     setHorario(h)
 
     if (h) {
-      const { data: reg } = await supabase
-        .from('registros_asistencia')
-        .select('*')
-        .eq('horario_id', h.horario_id)
-        .eq('fecha', hoyISO())
-        .maybeSingle()
-      setRegistro((reg as RegistroAsistencia) ?? null)
+      const { data: reg } = await supabase.rpc('get_registro_clase', {
+        p_profesor_id: profesorId,
+        p_horario_id: h.horario_id,
+        p_fecha: hoyISO(),
+      })
+      setRegistro(((reg ?? []) as RegistroClase[])[0] ?? null)
     }
     setLoading(false)
   }, [profesorId])
@@ -71,22 +70,22 @@ export default function ValidarAsistencia() {
     if (!profesorId || !horario) return
     setWorking(true)
 
-    const payload = {
-      horario_id: horario.horario_id,
-      profesor_id: profesorId,
-      aula_id: horario.aula_id,
-      fecha: hoyISO(),
-      metodo_deteccion: metodoRegistro,
-      beacon_detectado: beacon,
-      estado: calcularEstado(horario.hora_inicio),
-      latitud: coords?.latitud ?? null,
-      longitud: coords?.longitud ?? null,
+    // RPC SECURITY DEFINER: registra usando profesor_id (sin sesión de Supabase).
+    // El estado (presente/tarde) lo calcula el servidor con la hora local.
+    const params = {
+      p_profesor_id: profesorId,
+      p_horario_id: horario.horario_id,
+      p_aula_id: horario.aula_id,
+      p_metodo: metodoRegistro,
+      p_beacon: beacon,
+      p_lat: coords?.latitud ?? null,
+      p_lon: coords?.longitud ?? null,
     }
 
     // Sin conexión: el service worker encola el POST (Background Sync) y lo
     // reenvía al volver la red. Confirmamos de forma optimista.
     if (!navigator.onLine) {
-      void supabase.from('registros_asistencia').insert(payload)
+      void supabase.rpc('registrar_asistencia', params)
       setResultado({
         tipo: 'info',
         mensaje:
@@ -97,7 +96,7 @@ export default function ValidarAsistencia() {
       return
     }
 
-    const { error } = await supabase.from('registros_asistencia').insert(payload)
+    const { error } = await supabase.rpc('registrar_asistencia', params)
     if (error) {
       setResultado({
         tipo: 'error',

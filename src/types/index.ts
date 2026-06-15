@@ -111,3 +111,32 @@ export interface HorarioActivo {
   hora_fin: string
   semestre: string
 }
+
+/** Fila devuelta por la RPC `get_proxima_clase` */
+export interface ProximaClase {
+  horario_id: string
+  materia_nombre: string
+  materia_clave: string | null
+  aula_nombre: string
+  edificio: string | null
+  hora_inicio: string
+  hora_fin: string
+}
+
+/** Fila devuelta por la RPC `get_historial_profesor` */
+export interface HistorialItem {
+  id: string
+  fecha: string
+  hora_registro: string
+  metodo_deteccion: MetodoDeteccion
+  estado: EstadoAsistencia
+  materia_nombre: string | null
+  aula_nombre: string | null
+}
+
+/** Fila devuelta por `get_registro_clase` y `registrar_asistencia` */
+export interface RegistroClase {
+  id: string
+  estado: EstadoAsistencia
+  hora_registro: string
+}

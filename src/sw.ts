@@ -75,7 +75,8 @@ const colaAsistencia = new BackgroundSyncPlugin('asistencia-sync', {
 registerRoute(
   ({ url, request }) =>
     request.method === 'POST' &&
-    url.pathname.includes('/rest/v1/registros_asistencia'),
+    (url.pathname.includes('/rest/v1/registros_asistencia') ||
+      url.pathname.includes('/rest/v1/rpc/registrar_asistencia')),
   new NetworkFirst({ cacheName: 'asistencia-post', plugins: [colaAsistencia] }),
   'POST'
 )
