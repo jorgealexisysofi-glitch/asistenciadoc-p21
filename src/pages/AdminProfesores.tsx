@@ -73,6 +73,12 @@ export default function AdminProfesores() {
     null
   )
 
+  // Modal de confirmación de eliminación
+  const [deleteTarget, setDeleteTarget] = useState<Profesor | null>(null)
+
+  // Modal con la instrucción para crear la cuenta tras agregar un profesor
+  const [mostrarInstruccionCuenta, setMostrarInstruccionCuenta] = useState(false)
+
   // Fila expandida con horarios
   const [expandido, setExpandido] = useState<string | null>(null)
   const [horarios, setHorarios] = useState<Record<string, Horario[]>>({})
@@ -220,12 +226,8 @@ export default function AdminProfesores() {
         setWorking(false)
         return
       }
-      setAviso({
-        tipo: 'info',
-        mensaje:
-          'Profesor agregado. Para crear su cuenta de acceso, ejecuta el script invitar_profesores.js',
-      })
-      toast.success('Profesor agregado. Ejecuta invitar_profesores.js para su cuenta de acceso.')
+      toast.success('Profesor agregado correctamente')
+      setMostrarInstruccionCuenta(true)
     } else {
       const { error } = await supabase
         .from('profesores')
@@ -252,6 +254,36 @@ export default function AdminProfesores() {
       .update({ activo: !p.activo })
       .eq('id', p.id)
     if (error) setAviso({ tipo: 'error', mensaje: 'No se pudo cambiar el estado.' })
+    await cargar()
+    setWorking(false)
+  }
+
+  async function confirmarEliminar() {
+    if (!deleteTarget) return
+    setWorking(true)
+    const teniaCuenta = deleteTarget.user_id != null
+    const { error } = await supabase.from('profesores').delete().eq('id', deleteTarget.id)
+    if (error) {
+      // 23503 = violación de FK (el profesor tiene registros de asistencia)
+      if (error.code === '23503') {
+        toast.error(
+          'No se puede eliminar porque tiene registros de asistencia. Desactívalo en su lugar.'
+        )
+      } else {
+        toast.error('No se pudo eliminar el profesor.')
+      }
+      setWorking(false)
+      return
+    }
+    toast.success('Profesor eliminado correctamente')
+    if (teniaCuenta) {
+      setAviso({
+        tipo: 'info',
+        mensaje:
+          'Recuerda eliminar también la cuenta en Supabase Auth → Authentication → Users.',
+      })
+    }
+    setDeleteTarget(null)
     await cargar()
     setWorking(false)
   }
@@ -564,6 +596,84 @@ export default function AdminProfesores() {
             {working ? 'Guardando…' : 'Guardar'}
           </button>
         </form>
+
+        {/* Eliminar profesor (solo en edición), separado y abajo a la izquierda */}
+        {editandoExistente && (
+          <div className="mt-4 border-t border-gray-100 pt-3">
+            <button
+              type="button"
+              onClick={() => {
+                const p = editandoExistente
+                setEditando(null)
+                setDeleteTarget(p)
+              }}
+              className="text-sm font-semibold text-red-600 transition-colors hover:text-red-700 hover:underline"
+            >
+              Eliminar profesor
+            </button>
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal de confirmación de eliminación */}
+      <Modal
+        open={deleteTarget !== null}
+        title="Eliminar profesor"
+        onClose={() => setDeleteTarget(null)}
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-gray-600">
+            ¿Eliminar a{' '}
+            <span className="font-semibold text-gray-800">
+              {deleteTarget?.nombre} {deleteTarget?.apellidos}
+            </span>
+            ? Esta acción no se puede deshacer.
+          </p>
+          {deleteTarget?.user_id && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              Recuerda eliminar también la cuenta en Supabase Auth → Authentication → Users.
+            </p>
+          )}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setDeleteTarget(null)}
+              disabled={working}
+              className="btn-ghost flex-1"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => void confirmarEliminar()}
+              disabled={working}
+              className="flex-1 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {working ? 'Eliminando…' : 'Eliminar'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal con la instrucción para crear la cuenta del nuevo profesor */}
+      <Modal
+        open={mostrarInstruccionCuenta}
+        title="Profesor agregado"
+        onClose={() => setMostrarInstruccionCuenta(false)}
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-gray-600">Para crear su cuenta de acceso ejecuta:</p>
+          <code className="block break-all rounded-lg bg-fondo px-3 py-2 font-mono text-xs text-gray-800">
+            node --env-file=.env invitar_profesores.js
+          </code>
+          <button
+            type="button"
+            onClick={() => setMostrarInstruccionCuenta(false)}
+            className="btn-primary"
+          >
+            Entendido
+          </button>
+        </div>
       </Modal>
 
       {/* Modal alta/edición de horario */}
@@ -829,13 +939,18 @@ function ProfesorFila({
           </span>
         </td>
         <td className="px-4 py-3">
-          <span
-            className={`badge ${
-              p.activo ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'
-            }`}
-          >
-            {p.activo ? 'Activo' : 'Inactivo'}
-          </span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span
+              className={`badge ${
+                p.activo ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'
+              }`}
+            >
+              {p.activo ? 'Activo' : 'Inactivo'}
+            </span>
+            {p.user_id == null && (
+              <span className="badge bg-amber-50 text-amber-700">Sin cuenta</span>
+            )}
+          </div>
         </td>
         <td className="px-4 py-3">
           <div

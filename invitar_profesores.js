@@ -1,10 +1,11 @@
 // invitar_profesores.js
-// Crea las cuentas de Supabase Auth de todos los profesores activos con una
-// contraseña temporal compartida, vincula el user_id con su ficha en la tabla
-// `profesores` y genera un CSV con las credenciales temporales.
+// Crea cuentas de Supabase Auth con una contraseña temporal compartida, vincula
+// el user_id con la ficha en `profesores` y genera un CSV con las credenciales.
 //
 // Uso:
-//   node --env-file=.env invitar_profesores.js
+//   node --env-file=.env invitar_profesores.js                  → todas las
+//       cuentas pendientes (profesores con user_id = null)
+//   node --env-file=.env invitar_profesores.js correo@dominio   → solo esa cuenta
 // (o exporta SUPABASE_SERVICE_KEY en el entorno antes de ejecutar)
 //
 // ⚠️  La Service Role Key omite RLS: ejecuta este script solo en tu máquina,
@@ -41,12 +42,16 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms))
 const csvCampo = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
 
 async function main() {
-  // 1. Profesores activos
-  const { data: profesores, error } = await supabase
+  const correoArg = process.argv[2]?.trim().toLowerCase()
+
+  // 1. Profesores objetivo: un correo concreto, o todas las cuentas pendientes
+  let query = supabase
     .from('profesores')
-    .select('id, correo, nombre, apellidos')
-    .eq('activo', true)
+    .select('id, correo, nombre, apellidos, user_id')
     .order('apellidos', { ascending: true })
+  query = correoArg ? query.eq('correo', correoArg) : query.is('user_id', null)
+
+  const { data: profesores, error } = await query
 
   if (error) {
     console.error('✗ No se pudo leer la tabla profesores:', error.message)
@@ -54,20 +59,33 @@ async function main() {
   }
 
   if (!profesores?.length) {
-    console.log('No hay profesores activos por registrar.')
+    console.log(
+      correoArg
+        ? `No existe un profesor con el correo ${correoArg}.`
+        : 'No hay cuentas pendientes por crear (todos tienen user_id).'
+    )
     return
   }
 
-  console.log(`Creando ${profesores.length} cuenta(s) de profesor…\n`)
+  console.log(`Procesando ${profesores.length} profesor(es)…\n`)
 
   let exitosos = 0
   let fallidos = 0
+  let omitidos = 0
   // Filas para el CSV de credenciales (solo cuentas creadas correctamente)
   const credenciales = []
 
   for (const prof of profesores) {
     const nombreCompleto = `${prof.nombre} ${prof.apellidos}`
     const etiqueta = `${prof.apellidos}, ${prof.nombre} <${prof.correo}>`
+
+    // Ya tiene cuenta vinculada (relevante al pasar un correo concreto)
+    if (prof.user_id) {
+      console.log(`• ${etiqueta} ya tiene cuenta; se omite.`)
+      omitidos++
+      continue
+    }
+
     try {
       // 2. Crear la cuenta con contraseña temporal y correo ya confirmado
       const { data: creado, error: errCreate } = await supabase.auth.admin.createUser({
@@ -109,7 +127,7 @@ async function main() {
   }
 
   console.log(
-    `\nResumen: ${exitosos} exitoso(s), ${fallidos} fallido(s) de ${profesores.length}.`
+    `\nResumen: ${exitosos} creada(s), ${omitidos} omitida(s), ${fallidos} fallida(s) de ${profesores.length}.`
   )
   process.exit(fallidos > 0 ? 1 : 0)
 }
