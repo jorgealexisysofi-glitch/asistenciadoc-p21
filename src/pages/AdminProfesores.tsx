@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import toast from 'react-hot-toast'
 import AdminLayout from '../components/AdminLayout'
 import Modal from '../components/Modal'
@@ -56,6 +56,11 @@ export default function AdminProfesores() {
   const [working, setWorking] = useState(false)
   const [aviso, setAviso] = useState<Aviso>(null)
 
+  // Búsqueda y filtros
+  const [busqueda, setBusqueda] = useState('')
+  const [fEstado, setFEstado] = useState<'todos' | 'activos' | 'inactivos'>('todos')
+  const [fRol, setFRol] = useState<'todos' | 'profesores' | 'admins'>('todos')
+
   // Modal de profesor (alta/edición)
   const [editando, setEditando] = useState<Profesor | 'nuevo' | null>(null)
   const [form, setForm] = useState<FormProfesor>(FORM_VACIO)
@@ -98,6 +103,33 @@ export default function AdminProfesores() {
   useEffect(() => {
     void cargar()
   }, [cargar])
+
+  // ---------- Búsqueda y filtros combinados ----------
+
+  const hayFiltros = busqueda.trim() !== '' || fEstado !== 'todos' || fRol !== 'todos'
+
+  const filtrados = useMemo(() => {
+    const q = busqueda.trim().toLowerCase()
+    return profesores.filter((p) => {
+      const coincideTexto =
+        q === '' ||
+        `${p.nombre} ${p.apellidos}`.toLowerCase().includes(q) ||
+        p.correo.toLowerCase().includes(q) ||
+        (p.numero_empleado ?? '').toLowerCase().includes(q)
+      const coincideEstado =
+        fEstado === 'todos' ||
+        (fEstado === 'activos' ? p.activo : !p.activo)
+      const coincideRol =
+        fRol === 'todos' || (fRol === 'admins' ? p.admin : !p.admin)
+      return coincideTexto && coincideEstado && coincideRol
+    })
+  }, [profesores, busqueda, fEstado, fRol])
+
+  function limpiarFiltros() {
+    setBusqueda('')
+    setFEstado('todos')
+    setFRol('todos')
+  }
 
   // ---------- Horarios por profesor ----------
 
@@ -229,7 +261,9 @@ export default function AdminProfesores() {
       .update({ admin: rolTarget.nuevoRol === 'admin' })
       .eq('id', rolTarget.profesor.id)
     if (error) {
-      toast.error('No se pudo cambiar el rol.')
+      // Diagnóstico: el error exacto de Supabase/PostgREST (p. ej. columna inexistente)
+      console.error('[set-rol] update profesores.admin falló:', error)
+      toast.error(`No se pudo cambiar el rol: ${error.message}`)
     } else {
       toast.success(
         rolTarget.nuevoRol === 'admin'
@@ -303,6 +337,13 @@ export default function AdminProfesores() {
     setWorking(false)
   }
 
+  // Edición de un profesor existente: detectar si el correo cambió y tiene cuenta
+  const editandoExistente = editando && editando !== 'nuevo' ? editando : null
+  const correoCambioConCuenta =
+    editandoExistente != null &&
+    editandoExistente.user_id != null &&
+    form.correo.trim().toLowerCase() !== editandoExistente.correo.toLowerCase()
+
   return (
     <AdminLayout breadcrumb={[{ label: 'Profesores' }]}>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -333,12 +374,76 @@ export default function AdminProfesores() {
         </p>
       )}
 
+      {/* Búsqueda y filtros */}
+      <div className="card mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="lg:col-span-2">
+          <label htmlFor="busqueda" className="mb-1 block text-xs font-semibold text-gray-500">
+            Buscar
+          </label>
+          <input
+            id="busqueda"
+            type="search"
+            placeholder="Nombre, correo o número de empleado…"
+            className="input !py-2"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+          />
+        </div>
+        <div>
+          <label htmlFor="f-estado" className="mb-1 block text-xs font-semibold text-gray-500">
+            Estado
+          </label>
+          <select
+            id="f-estado"
+            className="input !py-2"
+            value={fEstado}
+            onChange={(e) => setFEstado(e.target.value as typeof fEstado)}
+          >
+            <option value="todos">Todos</option>
+            <option value="activos">Activos</option>
+            <option value="inactivos">Inactivos</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="f-rol" className="mb-1 block text-xs font-semibold text-gray-500">
+            Rol
+          </label>
+          <select
+            id="f-rol"
+            className="input !py-2"
+            value={fRol}
+            onChange={(e) => setFRol(e.target.value as typeof fRol)}
+          >
+            <option value="todos">Todos</option>
+            <option value="profesores">Profesores</option>
+            <option value="admins">Administradores</option>
+          </select>
+        </div>
+      </div>
+
+      {!loading && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-gray-500">
+            Mostrando <span className="font-semibold text-gray-700">{filtrados.length}</span> de{' '}
+            <span className="font-semibold text-gray-700">{profesores.length}</span> profesores
+          </p>
+          {hayFiltros && (
+            <button
+              onClick={limpiarFiltros}
+              className="text-sm font-semibold text-udeg-azul hover:underline"
+            >
+              Limpiar filtros
+            </button>
+          )}
+        </div>
+      )}
+
       {loading ? (
-        <div className="mt-5">
+        <div className="mt-3">
           <SkeletonTable rows={6} cols={5} />
         </div>
       ) : (
-        <div className="card mt-5 overflow-x-auto !p-0">
+        <div className="card mt-3 overflow-x-auto !p-0">
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead>
               <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
@@ -351,14 +456,16 @@ export default function AdminProfesores() {
               </tr>
             </thead>
             <tbody>
-              {profesores.length === 0 ? (
+              {filtrados.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                    No hay profesores registrados todavía.
+                    {profesores.length === 0
+                      ? 'No hay profesores registrados todavía.'
+                      : 'Sin resultados para los filtros seleccionados.'}
                   </td>
                 </tr>
               ) : (
-                profesores.map((p) => (
+                filtrados.map((p) => (
                   <ProfesorFila
                     key={p.id}
                     profesor={p}
@@ -414,6 +521,15 @@ export default function AdminProfesores() {
                 value={form[campo]}
                 onChange={(e) => setForm((f) => ({ ...f, [campo]: e.target.value }))}
               />
+              {campo === 'correo' && correoCambioConCuenta && editandoExistente && (
+                <div className="mt-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                  ⚠️ Al cambiar el correo deberás ejecutar en terminal:
+                  <code className="mt-1 block break-all font-mono text-amber-800">
+                    node --env-file=.env actualizar_correo.js {editandoExistente.correo}{' '}
+                    {form.correo.trim().toLowerCase() || '[correo_nuevo]'}
+                  </code>
+                </div>
+              )}
             </div>
           ))}
           {editando === 'nuevo' && (
