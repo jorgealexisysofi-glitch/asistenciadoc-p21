@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import Layout from '../components/Layout'
@@ -20,8 +20,6 @@ export default function ValidarAsistencia() {
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
   const [resultado, setResultado] = useState<Resultado>(null)
-  const [mostrarPin, setMostrarPin] = useState(false)
-  const [pin, setPin] = useState('')
 
   const profesorId = profesor?.id
 
@@ -95,8 +93,6 @@ export default function ValidarAsistencia() {
           'Sin conexión: tu asistencia se guardó y se sincronizará automáticamente al reconectar.',
       })
       toast('Guardado sin conexión. Se sincronizará al reconectar.', { icon: '📶' })
-      setMostrarPin(false)
-      setPin('')
       setWorking(false)
       return
     }
@@ -117,8 +113,6 @@ export default function ValidarAsistencia() {
             : 'Asistencia confirmada con el beacon del aula. ✔',
       })
       toast.success('¡Asistencia registrada!')
-      setMostrarPin(false)
-      setPin('')
       await cargar()
     }
     setWorking(false)
@@ -127,24 +121,6 @@ export default function ValidarAsistencia() {
   async function confirmarAsistencia() {
     if (!beaconDetectado || !horario) return
     await registrar(metodo ?? horario.beacon_tipo ?? 'manual', beaconDetectado)
-  }
-
-  async function confirmarManual(e: FormEvent) {
-    e.preventDefault()
-    if (!profesor) return
-    if (!profesor.pin) {
-      setResultado({
-        tipo: 'error',
-        mensaje: 'No tienes PIN asignado. Solicítalo a la administración.',
-      })
-      return
-    }
-    if (pin !== profesor.pin) {
-      setResultado({ tipo: 'error', mensaje: 'PIN incorrecto. Verifica e intenta de nuevo.' })
-      return
-    }
-    setResultado(null)
-    await registrar('manual', null)
   }
 
   const horaTexto = reloj.toLocaleTimeString('es-MX', { hour12: false })
@@ -288,59 +264,13 @@ export default function ValidarAsistencia() {
                 >
                   {working ? 'Guardando…' : 'Confirmar asistencia'}
                 </button>
-
-                {!mostrarPin ? (
-                  <button
-                    onClick={() => {
-                      setResultado(null)
-                      setMostrarPin(true)
-                    }}
-                    disabled={working}
-                    className="btn-ghost"
-                  >
-                    Registrar manualmente
-                  </button>
-                ) : (
-                  <form
-                    onSubmit={confirmarManual}
-                    className="flex flex-col gap-3 rounded-xl bg-fondo p-4"
-                  >
-                    <label htmlFor="pin" className="text-sm font-semibold text-gray-700">
-                      Confirma con tu PIN de 4 dígitos
-                    </label>
-                    <input
-                      id="pin"
-                      type="password"
-                      inputMode="numeric"
-                      pattern="[0-9]{4}"
-                      maxLength={4}
-                      required
-                      placeholder="••••"
-                      className="input text-center text-lg font-bold tracking-[0.5em]"
-                      value={pin}
-                      onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        type="submit"
-                        disabled={working || pin.length !== 4}
-                        className="btn-primary flex-1"
-                      >
-                        {working ? 'Guardando…' : 'Confirmar'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMostrarPin(false)
-                          setPin('')
-                        }}
-                        className="btn-ghost flex-1"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </form>
-                )}
+                <button
+                  onClick={() => void registrar('manual', null)}
+                  disabled={working}
+                  className="btn-ghost"
+                >
+                  Registrar manualmente
+                </button>
               </>
             )}
 

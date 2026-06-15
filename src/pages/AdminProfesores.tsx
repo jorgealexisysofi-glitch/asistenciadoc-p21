@@ -48,7 +48,7 @@ const HORARIO_VACIO: FormHorario = {
 }
 
 export default function AdminProfesores() {
-  const { user } = useAuth()
+  const { user, profesor: profesorActual } = useAuth()
   const [profesores, setProfesores] = useState<Profesor[]>([])
   const [materias, setMaterias] = useState<Materia[]>([])
   const [aulas, setAulas] = useState<Aula[]>([])
@@ -75,9 +75,6 @@ export default function AdminProfesores() {
 
   // Modal de confirmación de eliminación
   const [deleteTarget, setDeleteTarget] = useState<Profesor | null>(null)
-
-  // Modal con la instrucción para crear la cuenta tras agregar un profesor
-  const [mostrarInstruccionCuenta, setMostrarInstruccionCuenta] = useState(false)
 
   // Fila expandida con horarios
   const [expandido, setExpandido] = useState<string | null>(null)
@@ -226,8 +223,7 @@ export default function AdminProfesores() {
         setWorking(false)
         return
       }
-      toast.success('Profesor agregado correctamente')
-      setMostrarInstruccionCuenta(true)
+      toast.success('Profesor creado. Su NIP inicial es 2126')
     } else {
       const { error } = await supabase
         .from('profesores')
@@ -289,15 +285,16 @@ export default function AdminProfesores() {
   }
 
   async function confirmarReset() {
-    if (!resetTarget?.user_id) return
+    if (!resetTarget) return
     setWorking(true)
-    const { data, error } = await supabase.functions.invoke('reset-profesor-password', {
-      body: { profesor_id: resetTarget.id, user_id: resetTarget.user_id },
-    })
-    if (error || (data && data.error)) {
-      toast.error('No se pudo resetear la contraseña.')
+    const { error } = await supabase
+      .from('profesores')
+      .update({ nip: '2126', nip_temporal: true })
+      .eq('id', resetTarget.id)
+    if (error) {
+      toast.error('No se pudo resetear el NIP.')
     } else {
-      toast.success('Contraseña reseteada correctamente')
+      toast.success('NIP reseteado a 2126')
       await cargar()
     }
     setResetTarget(null)
@@ -391,12 +388,7 @@ export default function AdminProfesores() {
     setWorking(false)
   }
 
-  // Edición de un profesor existente: detectar si el correo cambió y tiene cuenta
   const editandoExistente = editando && editando !== 'nuevo' ? editando : null
-  const correoCambioConCuenta =
-    editandoExistente != null &&
-    editandoExistente.user_id != null &&
-    form.correo.trim().toLowerCase() !== editandoExistente.correo.toLowerCase()
 
   return (
     <AdminLayout breadcrumb={[{ label: 'Profesores' }]}>
@@ -534,7 +526,10 @@ export default function AdminProfesores() {
                     onEliminarHorario={(h) => void eliminarHorario(h)}
                     onResetPassword={() => setResetTarget(p)}
                     onCambiarRol={(nuevoRol) => setRolTarget({ profesor: p, nuevoRol })}
-                    esUsuarioActual={p.user_id != null && p.user_id === user?.id}
+                    esUsuarioActual={
+                      (p.user_id != null && p.user_id === user?.id) ||
+                      p.id === profesorActual?.id
+                    }
                   />
                 ))
               )}
@@ -575,21 +570,13 @@ export default function AdminProfesores() {
                 value={form[campo]}
                 onChange={(e) => setForm((f) => ({ ...f, [campo]: e.target.value }))}
               />
-              {campo === 'correo' && correoCambioConCuenta && editandoExistente && (
-                <div className="mt-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                  ⚠️ Al cambiar el correo deberás ejecutar en terminal:
-                  <code className="mt-1 block break-all font-mono text-amber-800">
-                    node --env-file=.env actualizar_correo.js {editandoExistente.correo}{' '}
-                    {form.correo.trim().toLowerCase() || '[correo_nuevo]'}
-                  </code>
-                </div>
-              )}
             </div>
           ))}
           {editando === 'nuevo' && (
             <p className="rounded-lg bg-udeg-azul-light px-3 py-2 text-xs text-udeg-azul">
-              Se crea solo la ficha. Para generar su cuenta de acceso, ejecuta el script{' '}
-              <code>invitar_profesores.js</code> (vincula el user_id por correo).
+              El profesor accederá con su número de empleado y el NIP inicial{' '}
+              <span className="font-mono font-semibold">2126</span>, que deberá cambiar en
+              su primer ingreso.
             </p>
           )}
           <button type="submit" disabled={working} className="btn-primary mt-1">
@@ -652,27 +639,6 @@ export default function AdminProfesores() {
               {working ? 'Eliminando…' : 'Eliminar'}
             </button>
           </div>
-        </div>
-      </Modal>
-
-      {/* Modal con la instrucción para crear la cuenta del nuevo profesor */}
-      <Modal
-        open={mostrarInstruccionCuenta}
-        title="Profesor agregado"
-        onClose={() => setMostrarInstruccionCuenta(false)}
-      >
-        <div className="flex flex-col gap-4">
-          <p className="text-sm text-gray-600">Para crear su cuenta de acceso ejecuta:</p>
-          <code className="block break-all rounded-lg bg-fondo px-3 py-2 font-mono text-xs text-gray-800">
-            node --env-file=.env invitar_profesores.js
-          </code>
-          <button
-            type="button"
-            onClick={() => setMostrarInstruccionCuenta(false)}
-            className="btn-primary"
-          >
-            Entendido
-          </button>
         </div>
       </Modal>
 
@@ -787,22 +753,22 @@ export default function AdminProfesores() {
         </form>
       </Modal>
 
-      {/* Modal de confirmación de reseteo de contraseña */}
+      {/* Modal de confirmación de reseteo de NIP */}
       <Modal
         open={resetTarget !== null}
-        title="Resetear contraseña"
+        title="Resetear NIP"
         onClose={() => setResetTarget(null)}
       >
         <div className="flex flex-col gap-4">
           <div className="space-y-2 text-sm text-gray-600">
             <p className="font-semibold text-gray-800">
-              ¿Resetear contraseña de {resetTarget?.nombre} {resetTarget?.apellidos}?
+              ¿Resetear el NIP de {resetTarget?.nombre} {resetTarget?.apellidos}?
             </p>
             <p>
-              Se restablecerá a la contraseña temporal:{' '}
-              <span className="font-mono font-semibold text-udeg-naranja">Prepa21@2026</span>
+              Se restablecerá al NIP inicial:{' '}
+              <span className="font-mono font-semibold text-udeg-naranja">2126</span>
             </p>
-            <p>El profesor deberá cambiarla en su próximo inicio de sesión.</p>
+            <p>El profesor deberá cambiarlo en su próximo inicio de sesión.</p>
           </div>
           <div className="flex gap-2">
             <button
@@ -939,18 +905,13 @@ function ProfesorFila({
           </span>
         </td>
         <td className="px-4 py-3">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span
-              className={`badge ${
-                p.activo ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'
-              }`}
-            >
-              {p.activo ? 'Activo' : 'Inactivo'}
-            </span>
-            {p.user_id == null && (
-              <span className="badge bg-amber-50 text-amber-700">Sin cuenta</span>
-            )}
-          </div>
+          <span
+            className={`badge ${
+              p.activo ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'
+            }`}
+          >
+            {p.activo ? 'Activo' : 'Inactivo'}
+          </span>
         </td>
         <td className="px-4 py-3">
           <div
@@ -964,32 +925,28 @@ function ProfesorFila({
             >
               <IconPencil className="h-4 w-4" />
             </button>
-            {p.user_id && (
-              <button
-                onClick={onResetPassword}
-                aria-label={`Resetear contraseña de ${p.nombre} ${p.apellidos}`}
-                title="Resetear contraseña"
-                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-udeg-naranja-light hover:text-udeg-naranja"
-              >
-                <IconKey className="h-4 w-4" />
-              </button>
-            )}
-            {p.user_id && (
-              <button
-                onClick={() => onCambiarRol(esAdmin ? 'profesor' : 'admin')}
-                disabled={working || esUsuarioActual}
-                title={
-                  esUsuarioActual
-                    ? 'No puedes cambiar tu propio rol'
-                    : esAdmin
-                      ? 'Quitar permisos de administrador'
-                      : 'Convertir en administrador'
-                }
-                className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-udeg-azul transition-colors hover:bg-udeg-azul-light disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {esAdmin ? 'Quitar Admin' : 'Hacer Admin'}
-              </button>
-            )}
+            <button
+              onClick={onResetPassword}
+              aria-label={`Resetear NIP de ${p.nombre} ${p.apellidos}`}
+              title="Resetear NIP"
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-udeg-naranja-light hover:text-udeg-naranja"
+            >
+              <IconKey className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => onCambiarRol(esAdmin ? 'profesor' : 'admin')}
+              disabled={working || esUsuarioActual}
+              title={
+                esUsuarioActual
+                  ? 'No puedes cambiar tu propio rol'
+                  : esAdmin
+                    ? 'Quitar permisos de administrador'
+                    : 'Convertir en administrador'
+              }
+              className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-udeg-azul transition-colors hover:bg-udeg-azul-light disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {esAdmin ? 'Quitar Admin' : 'Hacer Admin'}
+            </button>
             <button
               onClick={onToggleActivo}
               disabled={working}

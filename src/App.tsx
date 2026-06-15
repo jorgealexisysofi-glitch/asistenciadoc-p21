@@ -5,7 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import InstallBanner from './components/InstallBanner'
 import ConnectionWatcher from './components/ConnectionWatcher'
 import Login from './pages/Login'
-import CambiarPassword from './pages/CambiarPassword'
+import CambiarNIP from './pages/CambiarNIP'
 import ProfesorHome from './pages/ProfesorHome'
 import ValidarAsistencia from './pages/ValidarAsistencia'
 import Admin from './pages/Admin'
@@ -20,10 +20,10 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Login />} />
           <Route
-            path="/cambiar-password"
+            path="/cambiar-nip"
             element={
-              <ProtectedRoute skipPasswordCheck>
-                <CambiarPassword />
+              <ProtectedRoute skipNipCheck>
+                <CambiarNIP />
               </ProtectedRoute>
             }
           />

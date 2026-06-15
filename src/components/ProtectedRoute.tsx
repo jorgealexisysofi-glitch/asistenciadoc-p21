@@ -5,31 +5,31 @@ import Spinner from './Spinner'
 
 interface ProtectedRouteProps {
   children: ReactNode
-  /** Si se indica, además de sesión se exige este rol */
+  /** Si se indica, además de sesión se exige rol admin */
   requireRol?: 'admin'
-  /** Omite la redirección a /cambiar-password (úsalo en esa misma ruta) */
-  skipPasswordCheck?: boolean
+  /** Omite la redirección a /cambiar-nip (úsalo en esa misma ruta) */
+  skipNipCheck?: boolean
 }
 
 export default function ProtectedRoute({
   children,
   requireRol,
-  skipPasswordCheck,
+  skipNipCheck,
 }: ProtectedRouteProps) {
-  const { user, profesor, rol, loading } = useAuth()
+  const { isAuthenticated, isAdmin, requiereCambioNip, loading } = useAuth()
 
   if (loading) return <Spinner label="Verificando sesión…" />
 
   // Sin sesión → al login
-  if (!user) return <Navigate to="/" replace />
+  if (!isAuthenticated) return <Navigate to="/" replace />
 
-  // Contraseña temporal → forzar cambio antes de cualquier otra ruta
-  if (!skipPasswordCheck && profesor?.password_temporal) {
-    return <Navigate to="/cambiar-password" replace />
+  // NIP temporal → forzar cambio antes de cualquier otra ruta
+  if (!skipNipCheck && requiereCambioNip) {
+    return <Navigate to="/cambiar-nip" replace />
   }
 
-  // Con sesión pero sin el rol requerido → a su inicio
-  if (requireRol === 'admin' && rol !== 'admin') {
+  // Con sesión pero sin rol admin → a su inicio
+  if (requireRol === 'admin' && !isAdmin) {
     return <Navigate to="/home" replace />
   }
 

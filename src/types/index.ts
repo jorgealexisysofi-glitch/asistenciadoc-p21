@@ -19,11 +19,24 @@ export interface Profesor {
   admin: boolean
   /** PIN de 4 dígitos para confirmar el registro manual; null si no se ha asignado */
   pin: string | null
-  /** true mientras use la contraseña temporal: obliga a cambiarla al primer login */
+  /** NIP de acceso (4 dígitos). Inicial: '2126' */
+  nip: string
+  /** true mientras use el NIP temporal: obliga a cambiarlo al primer login */
+  nip_temporal: boolean
+  /** (legado de Supabase Auth; ya no se usa para el login de profesores) */
   password_temporal: boolean
   created_at: string
-  /** null hasta que el profesor active su cuenta en Supabase Auth */
+  /** null para profesores que entran por NIP; solo el admin usa Supabase Auth */
   user_id: string | null
+}
+
+/** Sesión de profesor autenticado por NIP (guardada en localStorage) */
+export interface SesionProfesor {
+  id: string
+  nombre: string
+  apellidos: string
+  admin: boolean
+  nip_temporal: boolean
 }
 
 /** Espacio físico con beacon ESP32 (tabla `aulas`) */

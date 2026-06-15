@@ -15,7 +15,7 @@ function navClass({ isActive }: { isActive: boolean }) {
 }
 
 export default function Layout({ children }: { children: ReactNode }) {
-  const { rol, signOut } = useAuth()
+  const { isAdmin, signOut } = useAuth()
   const navigate = useNavigate()
 
   async function handleSignOut() {
@@ -42,7 +42,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <NavLink to="/validar" className={navClass}>
             Validar
           </NavLink>
-          {rol === 'admin' && (
+          {isAdmin && (
             <NavLink to="/admin" className={navClass}>
               Panel admin
             </NavLink>
