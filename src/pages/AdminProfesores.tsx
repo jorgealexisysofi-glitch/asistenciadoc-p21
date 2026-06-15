@@ -150,38 +150,28 @@ export default function AdminProfesores() {
     }
 
     if (editando === 'nuevo') {
-      const { data, error } = await supabase
-        .from('profesores')
-        .insert(datos)
-        .select('id')
-        .single()
+      // Solo se crea la ficha (user_id queda null). La cuenta de acceso de Auth
+      // requiere la service role key y se genera aparte con invitar_profesores.js,
+      // que también vincula el user_id por correo.
+      const { error } = await supabase.from('profesores').insert(datos)
       if (error) {
         setAviso({
           tipo: 'error',
-          mensaje: error.code === '23505'
-            ? 'Ya existe un profesor con ese correo o número de empleado.'
-            : 'No se pudo crear el profesor.',
+          mensaje:
+            error.code === '23505'
+              ? 'Ya existe un profesor con ese correo o número de empleado.'
+              : 'No se pudo crear el profesor.',
         })
+        toast.error('No se pudo crear el profesor.')
         setWorking(false)
         return
       }
-      // Cuenta de acceso + correo de bienvenida vía Edge Function (usa service role)
-      const { error: fnError } = await supabase.functions.invoke('crear-profesor', {
-        body: { profesor_id: data.id, correo: datos.correo },
+      setAviso({
+        tipo: 'info',
+        mensaje:
+          'Profesor agregado. Para crear su cuenta de acceso, ejecuta el script invitar_profesores.js',
       })
-      setAviso(
-        fnError
-          ? {
-              tipo: 'info',
-              mensaje:
-                'Ficha creada. No se pudo crear la cuenta de acceso automáticamente: despliega la función "crear-profesor" o invita el correo desde el dashboard de Supabase (Authentication → Users → Invite).',
-            }
-          : {
-              tipo: 'ok',
-              mensaje: `Profesor creado. Se envió el correo de bienvenida a ${datos.correo}.`,
-            }
-      )
-      toast.success('Profesor creado.')
+      toast.success('Profesor agregado. Ejecuta invitar_profesores.js para su cuenta de acceso.')
     } else {
       const { error } = await supabase
         .from('profesores')
@@ -229,12 +219,16 @@ export default function AdminProfesores() {
   }
 
   async function confirmarRol() {
-    if (!rolTarget?.profesor.user_id) return
+    if (!rolTarget) return
     setWorking(true)
-    const { data, error } = await supabase.functions.invoke('set-profesor-rol', {
-      body: { user_id: rolTarget.profesor.user_id, rol: rolTarget.nuevoRol },
-    })
-    if (error || (data && data.error)) {
+    // El rol se gobierna por profesores.admin, que is_admin() (RLS) y calcularRol()
+    // (frontend) ya tratan como admin. Un admin puede actualizarlo vía la política
+    // profesores_admin_all, así que no hace falta una Edge Function.
+    const { error } = await supabase
+      .from('profesores')
+      .update({ admin: rolTarget.nuevoRol === 'admin' })
+      .eq('id', rolTarget.profesor.id)
+    if (error) {
       toast.error('No se pudo cambiar el rol.')
     } else {
       toast.success(
@@ -424,8 +418,8 @@ export default function AdminProfesores() {
           ))}
           {editando === 'nuevo' && (
             <p className="rounded-lg bg-udeg-azul-light px-3 py-2 text-xs text-udeg-azul">
-              Al guardar se crea su cuenta de acceso y recibe un correo de bienvenida
-              para establecer su contraseña.
+              Se crea solo la ficha. Para generar su cuenta de acceso, ejecuta el script{' '}
+              <code>invitar_profesores.js</code> (vincula el user_id por correo).
             </p>
           )}
           <button type="submit" disabled={working} className="btn-primary mt-1">
