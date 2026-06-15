@@ -14,6 +14,11 @@ interface ModalProps {
 /** Modal accesible: focus trap, cierre con Escape y clic en el fondo, foco restaurado */
 export default function Modal({ open, title, onClose, children }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
+  // onClose suele ser una arrow recreada en cada render del padre. La guardamos
+  // en un ref para que el efecto dependa SOLO de `open` y no se re-ejecute en
+  // cada tecleo (lo que robaba el foco a los inputs del modal).
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
     if (!open) return
@@ -25,7 +30,7 @@ export default function Modal({ open, title, onClose, children }: ModalProps) {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         e.preventDefault()
-        onClose()
+        onCloseRef.current()
         return
       }
       if (e.key !== 'Tab' || !dialog) return
@@ -49,7 +54,7 @@ export default function Modal({ open, title, onClose, children }: ModalProps) {
       document.body.style.overflow = ''
       previo?.focus()
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 
