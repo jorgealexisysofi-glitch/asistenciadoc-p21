@@ -7,6 +7,7 @@ import ConnectionWatcher from './components/ConnectionWatcher'
 import Login from './pages/Login'
 import CambiarNIP from './pages/CambiarNIP'
 import ProfesorHome from './pages/ProfesorHome'
+import MiHorario from './pages/MiHorario'
 import ValidarAsistencia from './pages/ValidarAsistencia'
 import Admin from './pages/Admin'
 import AdminProfesores from './pages/AdminProfesores'
@@ -40,6 +41,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <ValidarAsistencia />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mi-horario"
+            element={
+              <ProtectedRoute>
+                <MiHorario />
               </ProtectedRoute>
             }
           />

@@ -121,14 +121,14 @@ export default function Login() {
           <form onSubmit={handleNip} className="card flex flex-col gap-4">
             <div>
               <label htmlFor="numero" className="mb-1.5 block text-sm font-semibold text-gray-700">
-                Número de empleado
+                Código
               </label>
               <input
                 id="numero"
                 type="text"
                 required
                 autoComplete="username"
-                placeholder="P21-0000"
+                placeholder="Ingresa tu código"
                 className="input"
                 value={numeroEmpleado}
                 onChange={(e) => setNumeroEmpleado(e.target.value)}
@@ -136,7 +136,7 @@ export default function Login() {
             </div>
             <div>
               <label htmlFor="nip" className="mb-1.5 block text-sm font-semibold text-gray-700">
-                NIP
+                PIN
               </label>
               <input
                 id="nip"
@@ -145,8 +145,8 @@ export default function Login() {
                 pattern="[0-9]{4}"
                 maxLength={4}
                 required
-                placeholder="••••"
-                className="input text-center text-lg font-bold tracking-[0.5em]"
+                placeholder="Ingresa tu PIN"
+                className="input"
                 value={nip}
                 onChange={(e) => setNip(e.target.value.replace(/\D/g, ''))}
               />

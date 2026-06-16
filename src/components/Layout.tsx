@@ -2,9 +2,10 @@ import type { ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import Logo from './Logo'
+import { IconCalendar } from './icons'
 
 const linkBase =
-  'rounded-lg px-3 py-2 text-sm font-semibold transition-colors'
+  'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors'
 
 function navClass({ isActive }: { isActive: boolean }) {
   return `${linkBase} ${
@@ -25,7 +26,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-fondo">
-      <header className="sticky top-0 z-10 border-b border-gray-100 bg-white">
+      <header className="sticky top-0 z-10 border-b border-gray-100 bg-white print:hidden">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
           <Logo size={36} withText />
           <button
@@ -41,6 +42,10 @@ export default function Layout({ children }: { children: ReactNode }) {
           </NavLink>
           <NavLink to="/validar" className={navClass}>
             Validar
+          </NavLink>
+          <NavLink to="/mi-horario" className={navClass}>
+            <IconCalendar className="h-4 w-4" />
+            Mi Horario
           </NavLink>
           {isAdmin && (
             <NavLink to="/admin" className={navClass}>

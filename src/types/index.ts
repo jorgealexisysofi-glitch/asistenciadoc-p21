@@ -123,6 +123,20 @@ export interface ProximaClase {
   hora_fin: string
 }
 
+/** Fila devuelta por la RPC `get_horarios_profesor` */
+export interface HorarioProfesor {
+  horario_id: string
+  materia_nombre: string
+  materia_clave: string | null
+  aula_nombre: string
+  edificio: string | null
+  /** 1=Lunes … 6=Sábado */
+  dia_semana: number
+  hora_inicio: string
+  hora_fin: string
+  semestre: string
+}
+
 /** Fila devuelta por la RPC `get_historial_profesor` */
 export interface HistorialItem {
   id: string

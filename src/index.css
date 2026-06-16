@@ -12,6 +12,38 @@
   }
 }
 
+/* Impresión del horario: carta horizontal, solo el horario limpio */
+@media print {
+  @page {
+    size: letter landscape;
+    margin: 10mm;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  /* Ocultar cabecera/navegación y cualquier elemento marcado */
+  header,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* El contenido ocupa toda la página */
+  main {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Conservar los colores de los bloques de clase al imprimir */
+  .horario-print,
+  .horario-print * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
 @layer components {
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 rounded-xl bg-udeg-naranja px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-udeg-naranja-dark focus:outline-none focus:ring-2 focus:ring-udeg-naranja focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
