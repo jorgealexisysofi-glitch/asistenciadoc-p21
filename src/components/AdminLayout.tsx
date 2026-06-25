@@ -2,7 +2,15 @@ import { useState, type ReactNode } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import Logo from './Logo'
-import { IconBuilding, IconChart, IconHome, IconMenu, IconUsers, IconX } from './icons'
+import {
+  IconBuilding,
+  IconChart,
+  IconHome,
+  IconKey,
+  IconMenu,
+  IconUsers,
+  IconX,
+} from './icons'
 
 export interface Crumb {
   label: string
@@ -68,6 +76,23 @@ export default function AdminLayout({ breadcrumb, children }: AdminLayoutProps) 
             {label}
           </NavLink>
         ))}
+        {/* Solo admins con sesión de Supabase Auth pueden cambiar su contraseña */}
+        {user && (
+          <NavLink
+            to="/admin/cambiar-password"
+            onClick={() => setAbierto(false)}
+            className={({ isActive }) =>
+              `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+                isActive
+                  ? 'bg-udeg-naranja-light text-udeg-naranja'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`
+            }
+          >
+            <IconKey className="h-5 w-5 shrink-0" />
+            Cambiar contraseña
+          </NavLink>
+        )}
       </nav>
 
       <div className="border-t border-gray-100 px-3 py-4">

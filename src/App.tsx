@@ -13,6 +13,7 @@ import Admin from './pages/Admin'
 import AdminProfesores from './pages/AdminProfesores'
 import AdminReportes from './pages/AdminReportes'
 import AdminAulas from './pages/AdminAulas'
+import CambiarPasswordAdmin from './pages/CambiarPasswordAdmin'
 
 export default function App() {
   return (
@@ -81,6 +82,14 @@ export default function App() {
             element={
               <ProtectedRoute requireRol="admin">
                 <AdminAulas />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/cambiar-password"
+            element={
+              <ProtectedRoute requireRol="admin">
+                <CambiarPasswordAdmin />
               </ProtectedRoute>
             }
           />
