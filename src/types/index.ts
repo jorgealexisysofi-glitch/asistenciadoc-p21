@@ -117,7 +117,8 @@ export interface ProximaClase {
   horario_id: string
   materia_nombre: string
   materia_clave: string | null
-  aula_nombre: string
+  /** null si el horario aún no tiene aula asignada */
+  aula_nombre: string | null
   edificio: string | null
   hora_inicio: string
   hora_fin: string
@@ -128,7 +129,8 @@ export interface HorarioProfesor {
   horario_id: string
   materia_nombre: string
   materia_clave: string | null
-  aula_nombre: string
+  /** null si el horario aún no tiene aula asignada */
+  aula_nombre: string | null
   edificio: string | null
   /** 1=Lunes … 6=Sábado */
   dia_semana: number

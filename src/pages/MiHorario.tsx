@@ -164,7 +164,7 @@ export default function MiHorario() {
                       {c.materia_nombre}
                     </p>
                     <p className="truncate text-[10px] leading-tight opacity-90">
-                      {c.aula_nombre}
+                      {c.aula_nombre ?? 'Aula por asignar'}
                     </p>
                     <p className="text-[9px] leading-tight opacity-80">
                       {formatHora(c.hora_inicio)}–{formatHora(c.hora_fin)}

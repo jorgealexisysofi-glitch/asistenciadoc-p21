@@ -134,7 +134,7 @@ export default function ProfesorHome() {
                   {proxima.materia_nombre ?? 'Clase'}
                 </p>
                 <p className="text-sm text-gray-500">
-                  {proxima.aula_nombre ?? ''}
+                  {proxima.aula_nombre ?? 'Aula por asignar'}
                   {proxima.edificio ? ` · ${proxima.edificio}` : ''} ·{' '}
                   {formatHora(proxima.hora_inicio)}–{formatHora(proxima.hora_fin)}
                 </p>

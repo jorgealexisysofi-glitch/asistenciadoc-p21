@@ -46,3 +46,74 @@ export function minutosHasta(hora: string): number {
   objetivo.setHours(h, m ?? 0, 0, 0)
   return Math.round((objetivo.getTime() - Date.now()) / 60_000)
 }
+
+/** Normaliza texto para comparaciones: minúsculas, sin acentos ni espacios extra */
+export function normalizar(texto: unknown): string {
+  return String(texto ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ')
+}
+
+const DIAS_TEXTO: Record<string, number> = {
+  lunes: 1,
+  martes: 2,
+  miercoles: 3,
+  jueves: 4,
+  viernes: 5,
+  sabado: 6,
+  domingo: 7,
+}
+
+/** 'LUNES' / 'lun' / 1-7 → número 1=Lunes…7=Domingo (null si no se reconoce) */
+export function parseDiaSemana(valor: unknown): number | null {
+  if (valor == null || valor === '') return null
+  const n = Number(valor)
+  if (Number.isInteger(n) && n >= 1 && n <= 7) return n
+  const t = normalizar(valor)
+  for (const [nombre, dia] of Object.entries(DIAS_TEXTO)) {
+    if (t === nombre || nombre.startsWith(t) || t.startsWith(nombre.slice(0, 3))) return dia
+  }
+  return null
+}
+
+/** 'HH:MM-HH:MM' → { inicio, fin } en 'HH:MM:SS'; null si está mal formado */
+export function parseRangoHorario(
+  texto: unknown
+): { inicio: string; fin: string } | null {
+  const partes = String(texto ?? '').split(/[-–—]/)
+  if (partes.length !== 2) return null
+  const inicio = parseHora(partes[0])
+  const fin = parseHora(partes[1])
+  if (!inicio || !fin || fin <= inicio) return null
+  return { inicio, fin }
+}
+
+/** Cadena 'HH:MM' o número (fracción de día de Excel) → 'HH:MM:SS' (null si inválido) */
+export function parseHora(valor: unknown): string | null {
+  if (valor == null || valor === '') return null
+  // Excel guarda las horas como fracción de día (0.5 = 12:00)
+  if (typeof valor === 'number' && valor >= 0 && valor < 1) {
+    const totalMin = Math.round(valor * 24 * 60)
+    const h = Math.floor(totalMin / 60)
+    const m = totalMin % 60
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`
+  }
+  const m = String(valor).match(/(\d{1,2})\s*[:.]\s*(\d{2})/)
+  if (m) {
+    const h = Number(m[1])
+    const min = Number(m[2])
+    if (h <= 23 && min <= 59) {
+      return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}:00`
+    }
+  }
+  // Solo hora ('7' → 07:00)
+  const soloHora = String(valor).trim().match(/^(\d{1,2})$/)
+  if (soloHora) {
+    const h = Number(soloHora[1])
+    if (h <= 23) return `${String(h).padStart(2, '0')}:00:00`
+  }
+  return null
+}

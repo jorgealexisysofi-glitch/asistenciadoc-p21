@@ -8,6 +8,7 @@ import {
   IconHome,
   IconKey,
   IconMenu,
+  IconUpload,
   IconUsers,
   IconX,
 } from './icons'
@@ -22,6 +23,8 @@ const NAV = [
   { to: '/admin/profesores', label: 'Profesores', icon: IconUsers, end: false },
   { to: '/admin/reportes', label: 'Reportes', icon: IconChart, end: false },
   { to: '/admin/aulas', label: 'Aulas / Beacons', icon: IconBuilding, end: false },
+  { to: '/admin/horarios', label: 'Importar horarios', icon: IconUpload, end: false },
+  { to: '/admin/asignar-aulas', label: 'Asignar aulas', icon: IconBuilding, end: false },
 ]
 
 interface AdminLayoutProps {
