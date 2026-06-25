@@ -156,3 +156,24 @@ export interface RegistroClase {
   estado: EstadoAsistencia
   hora_registro: string
 }
+
+export type EstadoReporte = 'presente' | 'tarde' | 'falta'
+
+/** Fila de detalle devuelta por la RPC `generar_reporte_asistencia` */
+export interface ReporteDetalle {
+  profesor_id: string
+  profesor_nombre: string
+  profesor_apellidos: string
+  /** Fecha en formato YYYY-MM-DD */
+  fecha: string
+  dia_semana: number
+  materia_nombre: string
+  aula_nombre: string | null
+  hora_inicio: string
+  hora_fin: string
+  /** timestamptz del registro, o null si fue falta */
+  hora_registro: string | null
+  estado: EstadoReporte
+  /** Minutos vs hora programada (positivo = tarde); null si no hubo registro */
+  diferencia_min: number | null
+}
