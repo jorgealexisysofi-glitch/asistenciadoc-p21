@@ -17,14 +17,30 @@ interface BluetoothDeviceLike {
   ) => void
 }
 
+interface BluetoothRequestOptions {
+  filters?: Array<{ name?: string; namePrefix?: string; services?: string[] }>
+  acceptAllDevices?: boolean
+  optionalServices?: string[]
+}
+
 interface BluetoothLike {
-  requestDevice(options: {
-    filters: Array<{ name: string }>
-  }): Promise<BluetoothDeviceLike>
+  requestDevice(options: BluetoothRequestOptions): Promise<BluetoothDeviceLike>
   getDevices?: () => Promise<BluetoothDeviceLike[]>
 }
 
 type NavigatorBT = Navigator & { bluetooth?: BluetoothLike }
+
+/**
+ * El nombre que anuncia el ESP32 coincide con el beacon configurado.
+ * Tolerante: ignora mayúsculas/espacios y acepta prefijos (algunos ESP32
+ * añaden o recortan caracteres al nombre anunciado).
+ */
+function nombreCoincide(nombre: string | undefined, beaconId: string): boolean {
+  if (!nombre) return false
+  const a = nombre.trim().toLowerCase()
+  const b = beaconId.trim().toLowerCase()
+  return a === b || a.startsWith(b) || b.startsWith(a)
+}
 
 export interface Coordenadas {
   latitud: number
@@ -99,7 +115,7 @@ export function useBeaconDetection(
     setScanning(true)
     try {
       const dispositivos = await bt.getDevices()
-      const objetivo = dispositivos.find((d) => d.name === beaconId)
+      const objetivo = dispositivos.find((d) => nombreCoincide(d.name, beaconId))
       if (!objetivo) return
 
       if (!objetivo.watchAdvertisements || !objetivo.addEventListener) {
@@ -165,15 +181,24 @@ export function useBeaconDetection(
     setScanning(true)
     setError(null)
     try {
-      // El selector solo muestra dispositivos anunciando cerca: elegirlo = presencia
-      const device = await bt.requestDevice({ filters: [{ name: beaconId }] })
+      // acceptAllDevices: el selector muestra TODOS los dispositivos BLE cercanos
+      // (incluido el ESP32). Un filtro por `name` exacto ocultaba el beacon si su
+      // nombre anunciado no coincidía carácter por carácter. La pertenencia al
+      // aula se verifica por nombre DESPUÉS de que el usuario lo elige.
+      const device = await bt.requestDevice({ acceptAllDevices: true, optionalServices: [] })
+      if (!nombreCoincide(device.name, beaconId)) {
+        setError(
+          `Seleccionaste «${device.name ?? 'dispositivo sin nombre'}», que no es el beacon de esta aula (se espera «${beaconId}»). Elige el dispositivo correcto o avisa a la administración para verificar el nombre del ESP32.`
+        )
+        return
+      }
       marcarDetectado(device.name ?? beaconId)
     } catch (e) {
       // Cancelado por el usuario o beacon fuera de alcance
       const cancelado = e instanceof DOMException && e.name === 'NotFoundError'
       setError(
         cancelado
-          ? 'No se seleccionó el beacon. Acércate al aula e intenta de nuevo, o registra manualmente.'
+          ? 'No se seleccionó ningún dispositivo. Acércate al aula e intenta de nuevo, o registra manualmente.'
           : 'No se pudo escanear Bluetooth. Intenta de nuevo o registra manualmente.'
       )
     } finally {
