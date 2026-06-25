@@ -98,9 +98,11 @@ export default function ValidarAsistencia() {
 
     const { error } = await supabase.rpc('registrar_asistencia', params)
     if (error) {
+      // Diagnóstico: objeto de error completo de Supabase/PostgREST
+      console.error('[registrar_asistencia] falló:', error, 'params:', params)
       setResultado({
         tipo: 'error',
-        mensaje: 'No se pudo guardar el registro. Intenta de nuevo.',
+        mensaje: `No se pudo guardar el registro: ${error.message}`,
       })
       toast.error('No se pudo registrar la asistencia.')
     } else {

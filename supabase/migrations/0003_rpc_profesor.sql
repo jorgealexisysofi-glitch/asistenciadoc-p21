@@ -130,7 +130,7 @@ declare
   v_estado text;
   v_id uuid;
 begin
-  select hora_inicio into v_inicio from public.horarios where id = p_horario_id;
+  select h.hora_inicio into v_inicio from public.horarios h where h.id = p_horario_id;
 
   -- Tolerancia de 10 min tras el inicio = "presente"; después = "tarde"
   if v_inicio is null
@@ -152,9 +152,9 @@ begin
 
   -- Si ya existía (doble registro), devolver el registro existente sin cambiarlo
   if v_id is null then
-    select registros_asistencia.id into v_id
-    from public.registros_asistencia
-    where horario_id = p_horario_id and fecha = current_date;
+    select r.id into v_id
+    from public.registros_asistencia r
+    where r.horario_id = p_horario_id and r.fecha = current_date;
   end if;
 
   return query
