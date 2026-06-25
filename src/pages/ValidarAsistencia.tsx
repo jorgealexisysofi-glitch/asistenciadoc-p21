@@ -12,6 +12,21 @@ import type { HorarioActivo, MetodoDeteccion, RegistroClase } from '../types'
 
 type Resultado = { tipo: 'ok' | 'error' | 'info'; mensaje: string } | null
 
+const BLUEFY_URL = 'https://apps.apple.com/app/bluefy-web-ble-browser/id1492822055'
+
+/** ¿El dispositivo es iPhone/iPad? (iPadOS se hace pasar por Mac → se mira el touch) */
+function esIOS(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  const clasico = /iPad|iPhone|iPod/.test(ua)
+  const iPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1
+  return clasico || iPadOS
+}
+
+// Bluefy/WebBLE inyectan navigator.bluetooth: si existe, la detección sí funciona,
+// así que el aviso solo aplica en iOS SIN Web Bluetooth (Safari/Chrome iOS normales).
+const iosSinBluetooth = esIOS() && !('bluetooth' in navigator)
+
 export default function ValidarAsistencia() {
   const { profesor } = useAuth()
   const [reloj, setReloj] = useState(new Date())
@@ -201,6 +216,29 @@ export default function ValidarAsistencia() {
                 </p>
               </div>
             </div>
+
+            {!beaconDetectado &&
+              iosSinBluetooth &&
+              horario.beacon_tipo === 'bluetooth' && (
+                <div className="mt-3 rounded-xl bg-udeg-azul-light px-3 py-3 text-sm text-udeg-azul">
+                  <p className="font-semibold">📱 Detectamos que usas iPhone.</p>
+                  <p className="mt-1 text-xs leading-relaxed">
+                    Para la detección automática por Bluetooth necesitas instalar{' '}
+                    <span className="font-semibold">Bluefy</span> o{' '}
+                    <span className="font-semibold">WebBLE</span> desde el App Store (apps
+                    gratuitas) y abrir esta página desde esa app. Mientras tanto, puedes usar
+                    el registro manual abajo.
+                  </p>
+                  <a
+                    href={BLUEFY_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-secondary mt-3 w-full"
+                  >
+                    Ver Bluefy en App Store
+                  </a>
+                </div>
+              )}
 
             {!beaconDetectado && (
               <button
