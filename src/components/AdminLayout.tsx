@@ -31,9 +31,14 @@ interface AdminLayoutProps {
 }
 
 export default function AdminLayout({ breadcrumb, children }: AdminLayoutProps) {
-  const { profesor, user, signOut } = useAuth()
+  const { profesor, user, esSesionSupabase, signOut } = useAuth()
   const navigate = useNavigate()
   const [abierto, setAbierto] = useState(false)
+
+  // Diagnóstico temporal: revisar en la consola del navegador si hay sesión de
+  // Supabase Auth. Si esSesionSupabase es false, entraste por código + NIP (no
+  // por correo + contraseña) y por eso no aparece "Cambiar contraseña".
+  console.log('[AdminLayout] esSesionSupabase:', esSesionSupabase, 'user:', user?.email ?? null)
 
   const nombreAdmin = profesor
     ? `${profesor.nombre} ${profesor.apellidos}`
@@ -77,7 +82,7 @@ export default function AdminLayout({ breadcrumb, children }: AdminLayoutProps) 
           </NavLink>
         ))}
         {/* Solo admins con sesión de Supabase Auth pueden cambiar su contraseña */}
-        {user && (
+        {esSesionSupabase && (
           <NavLink
             to="/admin/cambiar-password"
             onClick={() => setAbierto(false)}

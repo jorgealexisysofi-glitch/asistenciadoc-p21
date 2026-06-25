@@ -23,6 +23,8 @@ interface AuthContextValue {
   profesor: SesionProfesor | null
   /** Usuario de Supabase Auth (solo el admin) */
   user: User | null
+  /** Hay una sesión de Supabase Auth activa (correo + contraseña) */
+  esSesionSupabase: boolean
   /** Hay alguna sesión activa (NIP o Supabase) */
   isAuthenticated: boolean
   isAdmin: boolean
@@ -75,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       esCorreoAdmin(user.email))
 
   const isAdmin = local?.admin === true || supabaseEsAdmin
+  const esSesionSupabase = session != null
   const isAuthenticated = local != null || session != null
   const requiereCambioNip = local?.nip_temporal === true
 
@@ -186,6 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         profesor,
         user,
+        esSesionSupabase,
         isAuthenticated,
         isAdmin,
         requiereCambioNip,
