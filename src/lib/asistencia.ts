@@ -16,9 +16,13 @@ export function formatHora(hora: string): string {
   return hora.slice(0, 5)
 }
 
-/** timestamptz → hora local 'HH:MM' */
-export function formatHoraRegistro(timestamp: string): string {
-  return new Date(timestamp).toLocaleTimeString('es-MX', {
+/** timestamptz → hora 'HH:MM' en la zona horaria de México (no la del navegador) */
+export function formatHoraRegistro(timestamp: string | null | undefined): string {
+  if (!timestamp) return ''
+  const d = new Date(timestamp)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleTimeString('es-MX', {
+    timeZone: 'America/Mexico_City',
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
