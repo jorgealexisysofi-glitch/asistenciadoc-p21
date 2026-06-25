@@ -4,7 +4,7 @@ import EstadoBadge from '../components/EstadoBadge'
 import { SkeletonKpis, SkeletonTable } from '../components/Skeleton'
 import { IconDownload } from '../components/icons'
 import { horaActual, hoyISO, supabase } from '../lib/supabase'
-import { diaSemanaISO, formatHoraRegistro } from '../lib/asistencia'
+import { diaSemanaISO, formatFecha, formatHoraRegistro } from '../lib/asistencia'
 import type { EstadoAsistencia, Profesor, RegistroAsistencia } from '../types'
 
 const REFRESCO_MS = 60_000
@@ -155,7 +155,7 @@ export default function Admin() {
       nombreCompleto(r),
       r.horario?.materia?.nombre ?? '',
       r.aula?.nombre ?? '',
-      r.fecha,
+      formatFecha(r.fecha),
       formatHoraRegistro(r.hora_registro),
       r.metodo_deteccion,
       r.estado,

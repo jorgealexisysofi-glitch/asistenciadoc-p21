@@ -16,6 +16,19 @@ export function formatHora(hora: string): string {
   return hora.slice(0, 5)
 }
 
+/**
+ * 'YYYY-MM-DD' (campo `date` de Postgres) → 'DD/MM/YYYY'.
+ * Se parsea como texto SIN construir un Date: un `date` no lleva hora y, si se
+ * pasara por `new Date('YYYY-MM-DD')`, se interpretaría como medianoche UTC y
+ * podría recorrerse al día anterior en zonas con offset negativo.
+ */
+export function formatFecha(fecha: string | null | undefined): string {
+  if (!fecha) return ''
+  const [y, m, d] = fecha.slice(0, 10).split('-')
+  if (!y || !m || !d) return String(fecha)
+  return `${d}/${m}/${y}`
+}
+
 /** timestamptz → hora 'HH:MM' en la zona horaria de México (no la del navegador) */
 export function formatHoraRegistro(timestamp: string | null | undefined): string {
   if (!timestamp) return ''

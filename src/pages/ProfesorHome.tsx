@@ -5,7 +5,7 @@ import EstadoBadge from '../components/EstadoBadge'
 import { Skeleton, SkeletonCards } from '../components/Skeleton'
 import { useAuth } from '../hooks/useAuth'
 import { horaActual, hoyISO, supabase } from '../lib/supabase'
-import { formatHora, formatHoraRegistro, minutosHasta, saludo } from '../lib/asistencia'
+import { formatFecha, formatHora, formatHoraRegistro, minutosHasta, saludo } from '../lib/asistencia'
 import type { HistorialItem, ProximaClase } from '../types'
 
 /** Minutos de anticipación con que se avisa la siguiente clase */
@@ -164,7 +164,7 @@ export default function ProfesorHome() {
                   <li key={r.id} className="card flex items-center justify-between py-3.5">
                     <div>
                       <p className="text-sm font-semibold text-gray-800">
-                        {r.materia_nombre ?? 'Clase'} · {r.fecha}
+                        {r.materia_nombre ?? 'Clase'} · {formatFecha(r.fecha)}
                       </p>
                       <p className="text-xs text-gray-500">
                         {r.aula_nombre ?? ''} · {formatHoraRegistro(r.hora_registro)} ·{' '}

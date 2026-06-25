@@ -4,7 +4,7 @@ import AdminLayout from '../components/AdminLayout'
 import { SkeletonTable } from '../components/Skeleton'
 import { IconChevronDown, IconDownload } from '../components/icons'
 import { supabase } from '../lib/supabase'
-import { formatHora, formatHoraRegistro } from '../lib/asistencia'
+import { formatFecha, formatHora, formatHoraRegistro } from '../lib/asistencia'
 import type { EstadoReporte, ReporteDetalle } from '../types'
 
 const DIAS = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
@@ -181,7 +181,7 @@ export default function AdminReportes() {
     }))
 
     const hojaDetalle = detalle.map((r) => ({
-      Fecha: r.fecha,
+      Fecha: formatFecha(r.fecha),
       Día: DIAS[r.dia_semana] ?? '',
       Profesor: `${r.profesor_apellidos}, ${r.profesor_nombre}`,
       Materia: r.materia_nombre,
@@ -376,7 +376,7 @@ function FilaResumen({ resumen: r, detalle, expandido, onToggle }: FilaProps) {
                 <tbody>
                   {detalle.map((d, i) => (
                     <tr key={i} className="border-b border-gray-50 last:border-0">
-                      <td className="px-3 py-2 text-gray-700">{d.fecha}</td>
+                      <td className="px-3 py-2 text-gray-700">{formatFecha(d.fecha)}</td>
                       <td className="px-3 py-2 text-gray-500">{DIAS[d.dia_semana] ?? '—'}</td>
                       <td className="px-3 py-2 text-gray-700">{d.materia_nombre}</td>
                       <td className="px-3 py-2 text-gray-500">{d.aula_nombre ?? 'Sin aula'}</td>
