@@ -806,6 +806,22 @@ export default function AdminProfesores() {
                   administrador?
                 </p>
                 <p>Tendrá acceso completo al panel de administración.</p>
+                {/* Aviso: los admin acceden por correo + contraseña (Supabase Auth) */}
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                  Este profesor necesita una cuenta de acceso con correo y contraseña para
+                  usar el panel admin. Su login por código + NIP no le dará acceso
+                  administrativo.
+                </p>
+                {/* Sin cuenta de Auth: instrucciones para crearla */}
+                {rolTarget && !rolTarget.profesor.user_id && (
+                  <div className="rounded-lg bg-udeg-azul-light px-3 py-2 text-xs text-udeg-azul">
+                    Para darle acceso de administrador, ejecuta en terminal:
+                    <code className="mt-1 block break-all font-mono text-udeg-azul-dark">
+                      node --env-file=.env crear_admin.js {rolTarget.profesor.correo}{' '}
+                      [contraseña_temporal]
+                    </code>
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -826,14 +842,25 @@ export default function AdminProfesores() {
             >
               Cancelar
             </button>
-            <button
-              type="button"
-              onClick={() => void confirmarRol()}
-              disabled={working}
-              className="btn-primary flex-1"
-            >
-              {working ? 'Guardando…' : 'Confirmar'}
-            </button>
+            {rolTarget?.nuevoRol === 'admin' && !rolTarget.profesor.user_id ? (
+              // Sin cuenta de Auth: el alta real la hace el script; aquí solo se informa
+              <button
+                type="button"
+                onClick={() => setRolTarget(null)}
+                className="btn-primary flex-1"
+              >
+                Entendido
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void confirmarRol()}
+                disabled={working}
+                className="btn-primary flex-1"
+              >
+                {working ? 'Guardando…' : 'Confirmar'}
+              </button>
+            )}
           </div>
         </div>
       </Modal>
