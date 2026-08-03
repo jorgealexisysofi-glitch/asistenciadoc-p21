@@ -8,7 +8,15 @@ import { normalizar, parseRangoHorario } from '../lib/asistencia'
 
 type Fila = (string | number)[]
 
-const HOJA = '2026a'
+/** Nombres de hoja aceptados (ciclo A o B), sin distinguir mayúsculas */
+const HOJAS_VALIDAS = ['2026a', '2026b']
+
+/** Devuelve el nombre real de la hoja de cargas dentro del libro, o null */
+function encontrarHoja(nombres: string[]): string | null {
+  return (
+    nombres.find((n) => HOJAS_VALIDAS.includes(n.trim().toLowerCase())) ?? null
+  )
+}
 
 /** Columnas L,M,I,J,V → día de la semana 1..5 */
 const DIAS: { col: 'L' | 'M' | 'I' | 'J' | 'V'; dia: number }[] = [
@@ -92,11 +100,14 @@ export default function AdminImportarHorarios() {
       const XLSX = await import('xlsx')
       const buf = await file.arrayBuffer()
       const wb = XLSX.read(buf, { type: 'array' })
-      const ws = wb.Sheets[HOJA]
-      if (!ws) {
-        setErrorArchivo(`El archivo no tiene una hoja llamada «${HOJA}».`)
+      const hoja = encontrarHoja(wb.SheetNames)
+      if (!hoja) {
+        setErrorArchivo(
+          `El archivo no tiene una hoja de cargas (${HOJAS_VALIDAS.join(' o ')}).`
+        )
         return
       }
+      const ws = wb.Sheets[hoja]
       const data = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' }) as Fila[]
       const noVacias = data.filter((f) => f.some((c) => String(c ?? '').trim() !== ''))
       if (noVacias.length < 2) {
@@ -262,7 +273,8 @@ export default function AdminImportarHorarios() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">Importar horarios</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Sube el Excel de cargas (hoja «{HOJA}»). Las aulas se asignan después en{' '}
+            Sube el Excel de cargas (hoja «{HOJAS_VALIDAS.join('» o «')}»). Las aulas se
+            asignan después en{' '}
             <span className="font-semibold">Asignar aulas</span>.
           </p>
         </div>
