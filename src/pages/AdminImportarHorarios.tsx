@@ -18,13 +18,15 @@ function encontrarHoja(nombres: string[]): string | null {
   )
 }
 
-/** Columnas L,M,I,J,V → día de la semana 1..5 */
-const DIAS: { col: 'L' | 'M' | 'I' | 'J' | 'V'; dia: number }[] = [
-  { col: 'L', dia: 1 },
-  { col: 'M', dia: 2 },
-  { col: 'I', dia: 3 },
-  { col: 'J', dia: 4 },
-  { col: 'V', dia: 5 },
+type ColDia = 'L' | 'M' | 'I' | 'J' | 'V'
+
+/** Cada día acepta la inicial (L,M,I,J,V) o el nombre completo (LUNES…VIERNES) */
+const DIAS: { col: ColDia; dia: number; alias: string[] }[] = [
+  { col: 'L', dia: 1, alias: ['l', 'lunes'] },
+  { col: 'M', dia: 2, alias: ['m', 'martes'] },
+  { col: 'I', dia: 3, alias: ['i', 'miercoles'] },
+  { col: 'J', dia: 4, alias: ['j', 'jueves'] },
+  { col: 'V', dia: 5, alias: ['v', 'viernes'] },
 ]
 
 interface Mapeo {
@@ -32,11 +34,14 @@ interface Mapeo {
   nombre: number
   materia: number
   cve: number
-  dias: Record<'L' | 'M' | 'I' | 'J' | 'V', number>
+  /** -1 si el archivo no trae columna de aula */
+  aula: number
+  dias: Record<ColDia, number>
 }
 
 interface Catalogo {
   profesores: { id: string; nombre: string; apellidos: string; numero_empleado: string | null }[]
+  aulas: { id: string; nombre: string; beacon_id: string | null }[]
 }
 
 /** Detecta las columnas por encabezado normalizado (devuelve null si falta alguna) */
@@ -47,12 +52,13 @@ function detectarColumnas(cabeceras: Fila): Mapeo | null {
   const nombre = buscar((h) => h === 'nombre')
   const materia = buscar((h) => h === 'materia')
   const cve = buscar((h) => h === 'cve materia' || (h.includes('cve') && h.includes('materia')))
+  const aula = buscar((h) => h === 'aula')
   const dias = {
-    L: buscar((h) => h === 'l'),
-    M: buscar((h) => h === 'm'),
-    I: buscar((h) => h === 'i'),
-    J: buscar((h) => h === 'j'),
-    V: buscar((h) => h === 'v'),
+    L: buscar((h) => DIAS[0].alias.includes(h)),
+    M: buscar((h) => DIAS[1].alias.includes(h)),
+    I: buscar((h) => DIAS[2].alias.includes(h)),
+    J: buscar((h) => DIAS[3].alias.includes(h)),
+    V: buscar((h) => DIAS[4].alias.includes(h)),
   }
   if (
     codigo < 0 ||
@@ -62,7 +68,7 @@ function detectarColumnas(cabeceras: Fila): Mapeo | null {
   ) {
     return null
   }
-  return { codigo, nombre, materia, cve, dias }
+  return { codigo, nombre, materia, cve, aula, dias }
 }
 
 export default function AdminImportarHorarios() {
@@ -74,6 +80,7 @@ export default function AdminImportarHorarios() {
   const [procesando, setProcesando] = useState(false)
   const [resultado, setResultado] = useState<{
     importados: number
+    conAula: number
     errores: string[]
   } | null>(null)
   const [verErrores, setVerErrores] = useState(false)
@@ -99,11 +106,28 @@ export default function AdminImportarHorarios() {
     try {
       const XLSX = await import('xlsx')
       const buf = await file.arrayBuffer()
-      const wb = XLSX.read(buf, { type: 'array' })
-      const hoja = encontrarHoja(wb.SheetNames)
+      const esCSV = /\.csv$/i.test(file.name)
+
+      let wb
+      if (esCSV) {
+        // Los CSV suelen venir en Windows-1252 (acentos como un solo byte); si
+        // UTF-8 deja el carácter de reemplazo, se reintenta con Windows-1252.
+        let texto = new TextDecoder('utf-8').decode(buf)
+        if (texto.includes('�')) {
+          texto = new TextDecoder('windows-1252').decode(buf)
+        }
+        wb = XLSX.read(texto, { type: 'string' })
+      } else {
+        wb = XLSX.read(buf, { type: 'array' })
+      }
+
+      // Excel con varias hojas → exige "2026a"/"2026b"; CSV (hoja única) → la usa
+      const hoja =
+        encontrarHoja(wb.SheetNames) ??
+        (wb.SheetNames.length === 1 ? wb.SheetNames[0] : null)
       if (!hoja) {
         setErrorArchivo(
-          `El archivo no tiene una hoja de cargas (${HOJAS_VALIDAS.join(' o ')}).`
+          `El Excel no tiene una hoja de cargas (${HOJAS_VALIDAS.join(' o ')}).`
         )
         return
       }
@@ -111,13 +135,13 @@ export default function AdminImportarHorarios() {
       const data = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' }) as Fila[]
       const noVacias = data.filter((f) => f.some((c) => String(c ?? '').trim() !== ''))
       if (noVacias.length < 2) {
-        setErrorArchivo('La hoja no tiene filas de datos.')
+        setErrorArchivo('El archivo no tiene filas de datos.')
         return
       }
       const map = detectarColumnas(noVacias[0])
       if (!map) {
         setErrorArchivo(
-          'No se detectaron las columnas esperadas (Código, Nombre, Materia y L/M/I/J/V). Verifica la hoja.'
+          'No se detectaron las columnas esperadas (Código, Nombre, Materia y los días L/M/I/J/V o LUNES…VIERNES). Verifica el archivo.'
         )
         return
       }
@@ -125,7 +149,7 @@ export default function AdminImportarHorarios() {
       setFilas(noVacias)
       setMapeo(map)
     } catch {
-      setErrorArchivo('No se pudo leer el archivo. Verifica que sea un .xlsx o .xls válido.')
+      setErrorArchivo('No se pudo leer el archivo. Verifica que sea un .xlsx, .xls o .csv válido.')
     }
   }
 
@@ -135,18 +159,19 @@ export default function AdminImportarHorarios() {
     setResultado(null)
     setVerErrores(false)
 
-    // Profesores y materias (una consulta cada uno)
-    const [resProf, resMaterias] = await Promise.all([
+    // Profesores, aulas y materias (una consulta cada uno)
+    const [resProf, resAulas, resMaterias] = await Promise.all([
       supabase.from('profesores').select('id, nombre, apellidos, numero_empleado'),
+      supabase.from('aulas').select('id, nombre, beacon_id'),
       supabase.from('materias').select('id, nombre, clave'),
     ])
-    if (resProf.error || resMaterias.error) {
+    if (resProf.error || resAulas.error || resMaterias.error) {
       toast.error('No se pudieron cargar los catálogos. ¿Iniciaste sesión como administrador?')
       setProcesando(false)
       return
     }
 
-    const cat: Catalogo = { profesores: resProf.data ?? [] }
+    const cat: Catalogo = { profesores: resProf.data ?? [], aulas: resAulas.data ?? [] }
     const materiaPorClave = new Map<string, string>()
     const materiaPorNombre = new Map<string, string>()
     for (const m of resMaterias.data ?? []) {
@@ -155,10 +180,11 @@ export default function AdminImportarHorarios() {
     }
 
     const errores: string[] = []
+    let conAula = 0
     const aInsertar: {
       profesor_id: string
       materia_id: string
-      aula_id: null
+      aula_id: string | null
       dia_semana: number
       hora_inicio: string
       hora_fin: string
@@ -211,6 +237,12 @@ export default function AdminImportarHorarios() {
         materiaPorNombre.set(normalizar(materiaNombre), materiaId)
       }
 
+      // Aula: si el archivo trae la columna y coincide con una aula existente,
+      // se asigna; si no, queda null (pendiente de asignar en «Asignar aulas»).
+      const aulaTexto = mapeo.aula >= 0 ? String(fila[mapeo.aula] ?? '').trim() : ''
+      const aula = aulaTexto ? buscarAula(cat, aulaTexto) : null
+      const aulaId = aula?.id ?? null
+
       // Un horario por cada día con contenido
       for (const { col, dia } of conDias) {
         const texto = String(fila[mapeo.dias[col]] ?? '').trim()
@@ -219,10 +251,11 @@ export default function AdminImportarHorarios() {
           errores.push(`Fila ${nFila} (${col}): horario «${texto}» mal formado.`)
           continue
         }
+        if (aulaId) conAula++
         aInsertar.push({
           profesor_id: profesor.id,
           materia_id: materiaId,
-          aula_id: null,
+          aula_id: aulaId,
           dia_semana: dia,
           hora_inicio: rango.inicio,
           hora_fin: rango.fin,
@@ -244,7 +277,7 @@ export default function AdminImportarHorarios() {
       }
     }
 
-    setResultado({ importados, errores })
+    setResultado({ importados, conAula: Math.min(conAula, importados), errores })
     setProcesando(false)
     if (importados > 0) toast.success(`${importados} horario(s) importado(s).`)
   }
@@ -273,8 +306,8 @@ export default function AdminImportarHorarios() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">Importar horarios</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Sube el Excel de cargas (hoja «{HOJAS_VALIDAS.join('» o «')}»). Las aulas se
-            asignan después en{' '}
+            Sube el archivo de cargas (Excel con hoja «{HOJAS_VALIDAS.join('» o «')}», o
+            CSV). Si trae columna de aula se asigna sola; el resto queda en{' '}
             <span className="font-semibold">Asignar aulas</span>.
           </p>
         </div>
@@ -291,10 +324,15 @@ export default function AdminImportarHorarios() {
         <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-gray-200 px-4 py-8 text-center transition-colors hover:border-udeg-naranja">
           <IconUpload className="h-8 w-8 text-udeg-naranja" />
           <span className="text-sm font-semibold text-gray-700">
-            {nombreArchivo || 'Selecciona el archivo Excel'}
+            {nombreArchivo || 'Selecciona el archivo de cargas'}
           </span>
-          <span className="text-xs text-gray-400">.xlsx o .xls</span>
-          <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleArchivo} />
+          <span className="text-xs text-gray-400">.xlsx, .xls o .csv</span>
+          <input
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={handleArchivo}
+          />
         </label>
         {errorArchivo && (
           <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
@@ -317,6 +355,7 @@ export default function AdminImportarHorarios() {
                   ['Nombre', mapeo.nombre],
                   ['Materia', mapeo.materia],
                   ['Cve. Materia', mapeo.cve],
+                  ['Aula', mapeo.aula],
                   ...DIAS.map(({ col }) => [`Día ${col}`, mapeo.dias[col]]),
                 ] as [string, number][]
               ).map(([etq, idx]) => (
@@ -383,12 +422,16 @@ export default function AdminImportarHorarios() {
         <section className="card mt-6">
           <p className="text-sm font-semibold text-gray-800">
             <span className="text-emerald-600">{resultado.importados}</span> horario(s)
-            importado(s) (todos <span className="text-amber-600">pendientes de aula</span>),{' '}
+            importado(s): <span className="text-udeg-azul">{resultado.conAula}</span> con aula,{' '}
+            <span className="text-amber-600">
+              {resultado.importados - resultado.conAula}
+            </span>{' '}
+            pendiente(s) de aula.{' '}
             <span className="text-red-600">{resultado.errores.length}</span> omitido(s) por errores.
           </p>
-          {resultado.importados > 0 && (
+          {resultado.importados - resultado.conAula > 0 && (
             <p className="mt-1 text-xs text-gray-500">
-              Asigna las aulas en la sección «Asignar aulas».
+              Asigna las aulas faltantes en la sección «Asignar aulas».
             </p>
           )}
           {resultado.errores.length > 0 && (
@@ -498,4 +541,13 @@ function buscarProfesor(
     return a === nom || b === nom || a.includes(nom) || nom.includes(a)
   })
   return coincidencias.length === 1 ? coincidencias[0] : null
+}
+
+/** Aula por nombre o por beacon_id (normalizado) */
+function buscarAula(cat: Catalogo, valor: string): Catalogo['aulas'][number] | null {
+  const v = normalizar(valor)
+  if (!v) return null
+  return (
+    cat.aulas.find((a) => normalizar(a.nombre) === v || normalizar(a.beacon_id) === v) ?? null
+  )
 }
