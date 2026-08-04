@@ -81,14 +81,19 @@ export default function AdminImportarHorarios() {
   const [resultado, setResultado] = useState<{
     importados: number
     conAula: number
+    profesoresCreados: number
+    aulasCreadas: number
     errores: string[]
   } | null>(null)
   const [verErrores, setVerErrores] = useState(false)
 
   // Limpiar horario: 0 cerrado, 1 primera confirmación, 2 escribir ELIMINAR
-  const [limpiarPaso, setLimpiarPaso] = useState<0 | 1 | 2>(0)
+  const [destructivo, setDestructivo] = useState<{
+    tipo: 'horarios' | 'maestros'
+    paso: 1 | 2
+  } | null>(null)
   const [textoConfirmar, setTextoConfirmar] = useState('')
-  const [limpiando, setLimpiando] = useState(false)
+  const [borrando, setBorrando] = useState(false)
 
   const encabezados = filas[0] ?? []
   const columnas = useMemo(
@@ -184,9 +189,19 @@ export default function AdminImportarHorarios() {
       aulaPorNombre.set(normalizar(a.nombre), a.id)
       if (a.beacon_id) aulaPorNombre.set(normalizar(a.beacon_id), a.id)
     }
+    // Caché de profesores por código y por nombre completo (ambos órdenes)
+    const profPorCodigo = new Map<string, string>()
+    const profPorNombre = new Map<string, string>()
+    for (const p of cat.profesores) {
+      if (p.numero_empleado) profPorCodigo.set(normalizar(p.numero_empleado), p.id)
+      profPorNombre.set(normalizar(`${p.nombre} ${p.apellidos}`), p.id)
+      profPorNombre.set(normalizar(`${p.apellidos} ${p.nombre}`), p.id)
+    }
 
     const errores: string[] = []
     let conAula = 0
+    let profesoresCreados = 0
+    let aulasCreadas = 0
     const aInsertar: {
       profesor_id: string
       materia_id: string
@@ -211,11 +226,30 @@ export default function AdminImportarHorarios() {
       )
       if (conDias.length === 0) continue
 
-      // Profesor: por Código (numero_empleado) y, si no, por Nombre
-      const profesor = buscarProfesor(cat, codigo, nombre)
-      if (!profesor) {
-        errores.push(`Fila ${nFila}: profesor «${nombre || codigo || '—'}» no encontrado.`)
-        continue
+      // Profesor: por Código (numero_empleado) o por Nombre; si no existe, se crea
+      let profesorId =
+        (codigo ? profPorCodigo.get(normalizar(codigo)) : undefined) ??
+        (nombre ? profPorNombre.get(normalizar(nombre)) : undefined) ??
+        null
+      if (!profesorId) {
+        if (!nombre) {
+          errores.push(`Fila ${nFila}: sin nombre ni coincidencia, no se pudo crear el profesor.`)
+          continue
+        }
+        const { nombre: nom, apellidos: ape } = partirNombre(nombre)
+        const { data, error } = await supabase
+          .from('profesores')
+          .insert({ nombre: nom, apellidos: ape, numero_empleado: codigo || null })
+          .select('id')
+          .single()
+        if (error || !data) {
+          errores.push(`Fila ${nFila}: no se pudo crear el profesor «${nombre}».`)
+          continue
+        }
+        profesorId = data.id as string
+        profesoresCreados++
+        if (codigo) profPorCodigo.set(normalizar(codigo), profesorId)
+        profPorNombre.set(normalizar(nombre), profesorId)
       }
 
       // Materia: por clave, luego por nombre; crear si no existe
@@ -259,6 +293,7 @@ export default function AdminImportarHorarios() {
             errores.push(`Fila ${nFila}: no se pudo crear el aula «${aulaTexto}».`)
           } else {
             aulaId = data.id as string
+            aulasCreadas++
             aulaPorNombre.set(normalizar(aulaTexto), aulaId)
           }
         }
@@ -274,7 +309,7 @@ export default function AdminImportarHorarios() {
         }
         if (aulaId) conAula++
         aInsertar.push({
-          profesor_id: profesor.id,
+          profesor_id: profesorId,
           materia_id: materiaId,
           aula_id: aulaId,
           dia_semana: dia,
@@ -298,25 +333,52 @@ export default function AdminImportarHorarios() {
       }
     }
 
-    setResultado({ importados, conAula: Math.min(conAula, importados), errores })
+    setResultado({
+      importados,
+      conAula: Math.min(conAula, importados),
+      profesoresCreados,
+      aulasCreadas,
+      errores,
+    })
     setProcesando(false)
     if (importados > 0) toast.success(`${importados} horario(s) importado(s).`)
   }
 
-  async function confirmarLimpiar() {
-    setLimpiando(true)
-    const { error } = await supabase
-      .from('horarios')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000')
-    setLimpiando(false)
-    if (error) {
-      toast.error('No se pudieron eliminar los horarios.')
-      return
-    }
-    toast.success('Todos los horarios fueron eliminados')
-    setLimpiarPaso(0)
+  function cerrarDestructivo() {
+    setDestructivo(null)
     setTextoConfirmar('')
+  }
+
+  async function confirmarDestructivo() {
+    if (!destructivo) return
+    setBorrando(true)
+    if (destructivo.tipo === 'horarios') {
+      const { error } = await supabase
+        .from('horarios')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000')
+      setBorrando(false)
+      if (error) {
+        toast.error('No se pudieron eliminar los horarios.')
+        return
+      }
+      toast.success('Todos los horarios fueron eliminados')
+    } else {
+      // Solo maestros sin cuenta de Auth y sin rol admin (no toca administradores).
+      // Al borrarlos, la cascada elimina también sus horarios y registros.
+      const { error } = await supabase
+        .from('profesores')
+        .delete()
+        .is('user_id', null)
+        .eq('admin', false)
+      setBorrando(false)
+      if (error) {
+        toast.error('No se pudieron eliminar los maestros.')
+        return
+      }
+      toast.success('Maestros eliminados (los administradores se conservan)')
+    }
+    cerrarDestructivo()
   }
 
   const hayDatos = filas.length > 1 && mapeo != null
@@ -332,13 +394,22 @@ export default function AdminImportarHorarios() {
             <span className="font-semibold">Asignar aulas</span>.
           </p>
         </div>
-        <button
-          onClick={() => setLimpiarPaso(1)}
-          className="rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
-        >
-          <IconTrash className="mr-1.5 inline h-4 w-4" />
-          Limpiar horario completo
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setDestructivo({ tipo: 'maestros', paso: 1 })}
+            className="rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
+          >
+            <IconTrash className="mr-1.5 inline h-4 w-4" />
+            Borrar maestros
+          </button>
+          <button
+            onClick={() => setDestructivo({ tipo: 'horarios', paso: 1 })}
+            className="rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
+          >
+            <IconTrash className="mr-1.5 inline h-4 w-4" />
+            Limpiar horario completo
+          </button>
+        </div>
       </div>
 
       <div className="card mt-5">
@@ -450,6 +521,14 @@ export default function AdminImportarHorarios() {
             pendiente(s) de aula.{' '}
             <span className="text-red-600">{resultado.errores.length}</span> omitido(s) por errores.
           </p>
+          <p className="mt-1 text-xs text-gray-500">
+            Se crearon{' '}
+            <span className="font-semibold text-gray-700">{resultado.profesoresCreados}</span>{' '}
+            maestro(s) y{' '}
+            <span className="font-semibold text-gray-700">{resultado.aulasCreadas}</span> aula(s)
+            nuevas. Los maestros entran con su número de empleado y NIP inicial{' '}
+            <span className="font-mono">2126</span>.
+          </p>
           {resultado.importados - resultado.conAula > 0 && (
             <p className="mt-1 text-xs text-gray-500">
               Asigna las aulas faltantes en la sección «Asignar aulas».
@@ -475,19 +554,34 @@ export default function AdminImportarHorarios() {
         </section>
       )}
 
-      {/* Modal limpiar — paso 1 */}
-      <Modal open={limpiarPaso === 1} title="Limpiar horario completo" onClose={() => setLimpiarPaso(0)}>
+      {/* Modal destructivo — paso 1 */}
+      <Modal
+        open={destructivo?.paso === 1}
+        title={destructivo?.tipo === 'maestros' ? 'Borrar maestros' : 'Limpiar horario completo'}
+        onClose={cerrarDestructivo}
+      >
         <div className="flex flex-col gap-4">
           <p className="text-sm text-gray-600">
-            ¿Eliminar <span className="font-semibold">TODOS</span> los horarios actuales? Esta acción
-            no afecta los registros de asistencia históricos.
+            {destructivo?.tipo === 'maestros' ? (
+              <>
+                ¿Eliminar <span className="font-semibold">TODOS</span> los maestros? Esto también
+                borra sus horarios y registros de asistencia. <span className="font-semibold">
+                  No afecta a los administradores.
+                </span>
+              </>
+            ) : (
+              <>
+                ¿Eliminar <span className="font-semibold">TODOS</span> los horarios actuales? Esta
+                acción no afecta los registros de asistencia históricos.
+              </>
+            )}
           </p>
           <div className="flex gap-2">
-            <button onClick={() => setLimpiarPaso(0)} className="btn-ghost flex-1">
+            <button onClick={cerrarDestructivo} className="btn-ghost flex-1">
               Cancelar
             </button>
             <button
-              onClick={() => setLimpiarPaso(2)}
+              onClick={() => setDestructivo((d) => (d ? { ...d, paso: 2 } : d))}
               className="flex-1 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-700"
             >
               Continuar
@@ -496,15 +590,8 @@ export default function AdminImportarHorarios() {
         </div>
       </Modal>
 
-      {/* Modal limpiar — paso 2 */}
-      <Modal
-        open={limpiarPaso === 2}
-        title="Confirmación final"
-        onClose={() => {
-          setLimpiarPaso(0)
-          setTextoConfirmar('')
-        }}
-      >
+      {/* Modal destructivo — paso 2 */}
+      <Modal open={destructivo?.paso === 2} title="Confirmación final" onClose={cerrarDestructivo}>
         <div className="flex flex-col gap-4">
           <p className="text-sm text-gray-600">
             Para confirmar, escribe{' '}
@@ -519,22 +606,15 @@ export default function AdminImportarHorarios() {
             autoComplete="off"
           />
           <div className="flex gap-2">
-            <button
-              onClick={() => {
-                setLimpiarPaso(0)
-                setTextoConfirmar('')
-              }}
-              disabled={limpiando}
-              className="btn-ghost flex-1"
-            >
+            <button onClick={cerrarDestructivo} disabled={borrando} className="btn-ghost flex-1">
               Cancelar
             </button>
             <button
-              onClick={() => void confirmarLimpiar()}
-              disabled={limpiando || textoConfirmar !== 'ELIMINAR'}
+              onClick={() => void confirmarDestructivo()}
+              disabled={borrando || textoConfirmar !== 'ELIMINAR'}
               className="flex-1 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {limpiando ? 'Eliminando…' : 'Eliminar todo'}
+              {borrando ? 'Eliminando…' : 'Eliminar todo'}
             </button>
           </div>
         </div>
@@ -543,23 +623,21 @@ export default function AdminImportarHorarios() {
   )
 }
 
-/** Profesor por número de empleado (Código) y, si no coincide, por nombre completo */
-function buscarProfesor(
-  cat: Catalogo,
-  codigo: string,
-  nombre: string
-): Catalogo['profesores'][number] | null {
-  const cod = normalizar(codigo)
-  if (cod) {
-    const porCodigo = cat.profesores.find((p) => normalizar(p.numero_empleado) === cod)
-    if (porCodigo) return porCodigo
+/**
+ * Parte un nombre completo en nombre(s) + apellidos.
+ * Heurística para nombres mexicanos: las últimas 2 palabras son apellidos.
+ * Con 2 palabras: 1 nombre + 1 apellido. Con 1 palabra: solo nombre.
+ */
+function partirNombre(completo: string): { nombre: string; apellidos: string } {
+  const palabras = completo.trim().split(/\s+/).filter(Boolean)
+  if (palabras.length >= 3) {
+    return {
+      nombre: palabras.slice(0, -2).join(' '),
+      apellidos: palabras.slice(-2).join(' '),
+    }
   }
-  const nom = normalizar(nombre)
-  if (!nom) return null
-  const coincidencias = cat.profesores.filter((p) => {
-    const a = normalizar(`${p.nombre} ${p.apellidos}`)
-    const b = normalizar(`${p.apellidos} ${p.nombre}`)
-    return a === nom || b === nom || a.includes(nom) || nom.includes(a)
-  })
-  return coincidencias.length === 1 ? coincidencias[0] : null
+  if (palabras.length === 2) {
+    return { nombre: palabras[0], apellidos: palabras[1] }
+  }
+  return { nombre: palabras[0] ?? completo, apellidos: '' }
 }
