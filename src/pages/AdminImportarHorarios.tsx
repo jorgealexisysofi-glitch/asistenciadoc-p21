@@ -3,6 +3,7 @@ import toast from 'react-hot-toast'
 import AdminLayout from '../components/AdminLayout'
 import Modal from '../components/Modal'
 import { IconTrash, IconUpload } from '../components/icons'
+import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { normalizar, parseRangoHorario } from '../lib/asistencia'
 
@@ -72,6 +73,7 @@ function detectarColumnas(cabeceras: Fila): Mapeo | null {
 }
 
 export default function AdminImportarHorarios() {
+  const { esSesionSupabase } = useAuth()
   const [nombreArchivo, setNombreArchivo] = useState('')
   const [filas, setFilas] = useState<Fila[]>([])
   const [mapeo, setMapeo] = useState<Mapeo | null>(null)
@@ -160,6 +162,15 @@ export default function AdminImportarHorarios() {
 
   async function procesar() {
     if (!mapeo) return
+    // Sin sesión de Supabase Auth, RLS rechaza cada escritura en silencio y el
+    // proceso "carga" minutos para terminar en nada: mejor avisar de inmediato.
+    if (!esSesionSupabase) {
+      toast.error(
+        'Tu sesión no puede escribir en la base. Cierra sesión y entra con «Acceso administrativo» usando tu correo y contraseña.',
+        { duration: 8000 }
+      )
+      return
+    }
     setProcesando(true)
     setResultado(null)
     setVerErrores(false)
@@ -396,6 +407,13 @@ export default function AdminImportarHorarios() {
 
   return (
     <AdminLayout breadcrumb={[{ label: 'Importar horarios' }]}>
+      {!esSesionSupabase && (
+        <p className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+          ⚠️ Entraste con código + NIP: esta sesión <span className="font-semibold">no puede
+          escribir en la base de datos</span> (la importación y los borrados no funcionarán).
+          Cierra sesión y entra con «Acceso administrativo» usando tu correo y contraseña.
+        </p>
+      )}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Importar horarios</h1>
