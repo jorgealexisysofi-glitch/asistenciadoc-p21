@@ -6,7 +6,7 @@ import { SkeletonTable } from '../components/Skeleton'
 import { IconChevronDown, IconKey, IconPencil, IconPlus, IconTrash } from '../components/icons'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
-import { formatHora } from '../lib/asistencia'
+import { formatHora, normalizar } from '../lib/asistencia'
 import type { Aula, Horario, Materia, Profesor, Rol } from '../types'
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
@@ -30,7 +30,8 @@ const FORM_VACIO: FormProfesor = {
 }
 
 interface FormHorario {
-  materia_id: string
+  /** Nombre de la materia (texto libre: si no existe, se crea) */
+  materia: string
   aula_id: string
   dia_semana: string
   hora_inicio: string
@@ -39,7 +40,7 @@ interface FormHorario {
 }
 
 const HORARIO_VACIO: FormHorario = {
-  materia_id: '',
+  materia: '',
   aula_id: '',
   dia_semana: '1',
   hora_inicio: '07:00',
@@ -333,7 +334,7 @@ export default function AdminProfesores() {
     setFormHorario(
       horario
         ? {
-            materia_id: horario.materia_id,
+            materia: horario.materia?.nombre ?? '',
             aula_id: horario.aula_id,
             dia_semana: String(horario.dia_semana),
             hora_inicio: formatHora(horario.hora_inicio),
@@ -351,9 +352,42 @@ export default function AdminProfesores() {
     setWorking(true)
     setAviso(null)
 
+    // Materia: se escribe libre; si no existe (por nombre o clave), se crea
+    const materiaTexto = formHorario.materia.trim()
+    if (!materiaTexto) {
+      setAviso({ tipo: 'error', mensaje: 'Escribe la materia del horario.' })
+      setWorking(false)
+      return
+    }
+    let materiaId =
+      materias.find(
+        (m) =>
+          normalizar(m.nombre) === normalizar(materiaTexto) ||
+          (m.clave && normalizar(m.clave) === normalizar(materiaTexto))
+      )?.id ?? null
+    if (!materiaId) {
+      const { data, error } = await supabase
+        .from('materias')
+        .insert({ nombre: materiaTexto })
+        .select('id')
+        .single()
+      if (error || !data) {
+        setAviso({ tipo: 'error', mensaje: `No se pudo crear la materia «${materiaTexto}».` })
+        setWorking(false)
+        return
+      }
+      materiaId = data.id as string
+      // Refrescar el catálogo local para que aparezca en las sugerencias
+      setMaterias((prev) =>
+        [...prev, { id: materiaId as string, nombre: materiaTexto, clave: null }].sort((a, b) =>
+          a.nombre.localeCompare(b.nombre)
+        )
+      )
+    }
+
     const datos = {
       profesor_id: horarioModal.profesorId,
-      materia_id: formHorario.materia_id,
+      materia_id: materiaId,
       aula_id: formHorario.aula_id,
       dia_semana: Number(formHorario.dia_semana),
       hora_inicio: formHorario.hora_inicio,
@@ -653,20 +687,24 @@ export default function AdminProfesores() {
             <label htmlFor="h-materia" className="mb-1 block text-sm font-semibold text-gray-700">
               Materia
             </label>
-            <select
+            <input
               id="h-materia"
+              type="text"
               required
+              list="lista-materias"
+              placeholder="Escribe o elige una materia…"
               className="input"
-              value={formHorario.materia_id}
-              onChange={(e) => setFormHorario((f) => ({ ...f, materia_id: e.target.value }))}
-            >
-              <option value="">Selecciona…</option>
+              value={formHorario.materia}
+              onChange={(e) => setFormHorario((f) => ({ ...f, materia: e.target.value }))}
+            />
+            <datalist id="lista-materias">
               {materias.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.nombre}
-                </option>
+                <option key={m.id} value={m.nombre} />
               ))}
-            </select>
+            </datalist>
+            <p className="mt-1 text-xs text-gray-400">
+              Si la materia no existe, se creará automáticamente.
+            </p>
           </div>
           <div>
             <label htmlFor="h-aula" className="mb-1 block text-sm font-semibold text-gray-700">
