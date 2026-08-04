@@ -364,19 +364,30 @@ export default function AdminImportarHorarios() {
       }
       toast.success('Todos los horarios fueron eliminados')
     } else {
-      // Solo maestros sin cuenta de Auth y sin rol admin (no toca administradores).
-      // Al borrarlos, la cascada elimina también sus horarios y registros.
-      const { error } = await supabase
+      // Solo maestros que NO son administradores (admin = false) y que no tienen
+      // cuenta de Supabase Auth (user_id null). La cascada borra sus horarios y
+      // registros. `select('id')` permite contar cuántos se eliminaron de verdad.
+      const { data, error } = await supabase
         .from('profesores')
         .delete()
-        .is('user_id', null)
         .eq('admin', false)
+        .is('user_id', null)
+        .select('id')
       setBorrando(false)
       if (error) {
-        toast.error('No se pudieron eliminar los maestros.')
+        console.error('[borrar-maestros] error:', error)
+        toast.error(`No se pudieron eliminar los maestros: ${error.message}`)
         return
       }
-      toast.success('Maestros eliminados (los administradores se conservan)')
+      const n = data?.length ?? 0
+      if (n === 0) {
+        toast(
+          'No se eliminó ningún maestro. Asegúrate de haber entrado como administrador con correo y contraseña (no con código + NIP).',
+          { icon: '⚠️', duration: 6000 }
+        )
+      } else {
+        toast.success(`${n} maestro(s) eliminado(s). Los administradores se conservan.`)
+      }
     }
     cerrarDestructivo()
   }
