@@ -178,6 +178,12 @@ export default function AdminImportarHorarios() {
       if (m.clave) materiaPorClave.set(normalizar(m.clave), m.id)
       materiaPorNombre.set(normalizar(m.nombre), m.id)
     }
+    // Caché de aulas (nombre y beacon → id); se va llenando si se crean nuevas
+    const aulaPorNombre = new Map<string, string>()
+    for (const a of cat.aulas) {
+      aulaPorNombre.set(normalizar(a.nombre), a.id)
+      if (a.beacon_id) aulaPorNombre.set(normalizar(a.beacon_id), a.id)
+    }
 
     const errores: string[] = []
     let conAula = 0
@@ -237,11 +243,26 @@ export default function AdminImportarHorarios() {
         materiaPorNombre.set(normalizar(materiaNombre), materiaId)
       }
 
-      // Aula: si el archivo trae la columna y coincide con una aula existente,
-      // se asigna; si no, queda null (pendiente de asignar en «Asignar aulas»).
+      // Aula: si el archivo trae la columna, se busca; si no existe, se CREA
+      // (sin beacon). Queda null solo si la fila no trae aula.
       const aulaTexto = mapeo.aula >= 0 ? String(fila[mapeo.aula] ?? '').trim() : ''
-      const aula = aulaTexto ? buscarAula(cat, aulaTexto) : null
-      const aulaId = aula?.id ?? null
+      let aulaId: string | null = null
+      if (aulaTexto) {
+        aulaId = aulaPorNombre.get(normalizar(aulaTexto)) ?? null
+        if (!aulaId) {
+          const { data, error } = await supabase
+            .from('aulas')
+            .insert({ nombre: aulaTexto })
+            .select('id')
+            .single()
+          if (error || !data) {
+            errores.push(`Fila ${nFila}: no se pudo crear el aula «${aulaTexto}».`)
+          } else {
+            aulaId = data.id as string
+            aulaPorNombre.set(normalizar(aulaTexto), aulaId)
+          }
+        }
+      }
 
       // Un horario por cada día con contenido
       for (const { col, dia } of conDias) {
@@ -541,13 +562,4 @@ function buscarProfesor(
     return a === nom || b === nom || a.includes(nom) || nom.includes(a)
   })
   return coincidencias.length === 1 ? coincidencias[0] : null
-}
-
-/** Aula por nombre o por beacon_id (normalizado) */
-function buscarAula(cat: Catalogo, valor: string): Catalogo['aulas'][number] | null {
-  const v = normalizar(valor)
-  if (!v) return null
-  return (
-    cat.aulas.find((a) => normalizar(a.nombre) === v || normalizar(a.beacon_id) === v) ?? null
-  )
 }
