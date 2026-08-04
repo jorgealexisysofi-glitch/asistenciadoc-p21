@@ -2,7 +2,7 @@ export type Rol = 'profesor' | 'admin'
 
 export type BeaconTipo = 'wifi' | 'bluetooth'
 
-export type MetodoDeteccion = 'wifi' | 'bluetooth' | 'manual'
+export type MetodoDeteccion = 'wifi' | 'bluetooth' | 'manual' | 'kiosco'
 
 export type EstadoAsistencia = 'presente' | 'tarde' | 'ausente'
 

@@ -5,6 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import InstallBanner from './components/InstallBanner'
 import ConnectionWatcher from './components/ConnectionWatcher'
 import Login from './pages/Login'
+import Checador from './pages/Checador'
 import CambiarNIP from './pages/CambiarNIP'
 import ProfesorHome from './pages/ProfesorHome'
 import MiHorario from './pages/MiHorario'
@@ -23,6 +24,7 @@ export default function App() {
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           <Route path="/" element={<Login />} />
+          <Route path="/checador" element={<Checador />} />
           <Route
             path="/cambiar-nip"
             element={

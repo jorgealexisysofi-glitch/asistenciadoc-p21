@@ -113,6 +113,14 @@ export default function AdminLayout({ breadcrumb, children }: AdminLayoutProps) 
         >
           Vista profesor
         </Link>
+        <a
+          href="/checador"
+          target="_blank"
+          rel="noopener"
+          className="mt-1 block rounded-xl px-3 py-2 text-sm font-semibold text-udeg-azul hover:bg-udeg-azul-light"
+        >
+          Punto de control ↗
+        </a>
         <button
           onClick={handleSignOut}
           className="mt-1 w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-gray-600 hover:bg-gray-100 hover:text-udeg-naranja"

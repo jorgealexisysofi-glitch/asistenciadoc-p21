@@ -5,7 +5,14 @@ import EstadoBadge from '../components/EstadoBadge'
 import { Skeleton, SkeletonCards } from '../components/Skeleton'
 import { useAuth } from '../hooks/useAuth'
 import { horaActual, hoyISO, supabase } from '../lib/supabase'
-import { formatFecha, formatHora, formatHoraRegistro, minutosHasta, saludo } from '../lib/asistencia'
+import {
+  etiquetaMetodo,
+  formatFecha,
+  formatHora,
+  formatHoraRegistro,
+  minutosHasta,
+  saludo,
+} from '../lib/asistencia'
 import type { HistorialItem, ProximaClase } from '../types'
 
 /** Minutos de anticipación con que se avisa la siguiente clase */
@@ -168,9 +175,7 @@ export default function ProfesorHome() {
                       </p>
                       <p className="text-xs text-gray-500">
                         {r.aula_nombre ?? ''} · {formatHoraRegistro(r.hora_registro)} ·{' '}
-                        {r.metodo_deteccion === 'manual'
-                          ? 'Manual'
-                          : `Beacon ${r.metodo_deteccion}`}
+                        {etiquetaMetodo(r.metodo_deteccion)}
                       </p>
                     </div>
                     <EstadoBadge estado={r.estado} />

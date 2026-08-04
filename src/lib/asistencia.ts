@@ -42,6 +42,18 @@ export function formatHoraRegistro(timestamp: string | null | undefined): string
   })
 }
 
+/** Etiqueta legible del método con que se registró la asistencia */
+export function etiquetaMetodo(metodo: string): string {
+  switch (metodo) {
+    case 'manual':
+      return 'Manual'
+    case 'kiosco':
+      return 'Punto de control'
+    default:
+      return `Beacon ${metodo}`
+  }
+}
+
 /** Saludo según la hora local */
 export function saludo(): string {
   const h = new Date().getHours()
