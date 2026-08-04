@@ -118,7 +118,7 @@ export default function AdminProfesores() {
       const coincideTexto =
         q === '' ||
         `${p.nombre} ${p.apellidos}`.toLowerCase().includes(q) ||
-        p.correo.toLowerCase().includes(q) ||
+        (p.correo ?? '').toLowerCase().includes(q) ||
         (p.numero_empleado ?? '').toLowerCase().includes(q)
       const coincideEstado =
         fEstado === 'todos' ||
@@ -164,7 +164,7 @@ export default function AdminProfesores() {
     setForm({
       nombre: p.nombre,
       apellidos: p.apellidos,
-      correo: p.correo,
+      correo: p.correo ?? '',
       numero_empleado: p.numero_empleado ?? '',
       telefono: p.telefono ?? '',
     })
@@ -180,7 +180,8 @@ export default function AdminProfesores() {
     const datos = {
       nombre: form.nombre.trim(),
       apellidos: form.apellidos.trim(),
-      correo: form.correo.trim().toLowerCase(),
+      // El correo es opcional: los maestros entran con número de empleado + NIP
+      correo: form.correo.trim().toLowerCase() || null,
       numero_empleado: form.numero_empleado.trim() || null,
       telefono: form.telefono.trim() || null,
     }
@@ -188,23 +189,25 @@ export default function AdminProfesores() {
     if (editando === 'nuevo') {
       const correoDuplicado = 'Ya existe un profesor registrado con ese correo electrónico'
 
-      // 1. Verificar de antemano si el correo ya está registrado
-      const { data: existente, error: errBusca } = await supabase
-        .from('profesores')
-        .select('id')
-        .eq('correo', datos.correo)
-        .maybeSingle()
-      if (errBusca) {
-        setAviso({ tipo: 'error', mensaje: 'No se pudo verificar el correo. Intenta de nuevo.' })
-        toast.error('No se pudo verificar el correo.')
-        setWorking(false)
-        return
-      }
-      if (existente) {
-        setAviso({ tipo: 'error', mensaje: correoDuplicado })
-        toast.error(correoDuplicado)
-        setWorking(false)
-        return
+      // 1. Si se capturó correo, verificar que no esté repetido
+      if (datos.correo) {
+        const { data: existente, error: errBusca } = await supabase
+          .from('profesores')
+          .select('id')
+          .eq('correo', datos.correo)
+          .maybeSingle()
+        if (errBusca) {
+          setAviso({ tipo: 'error', mensaje: 'No se pudo verificar el correo. Intenta de nuevo.' })
+          toast.error('No se pudo verificar el correo.')
+          setWorking(false)
+          return
+        }
+        if (existente) {
+          setAviso({ tipo: 'error', mensaje: correoDuplicado })
+          toast.error(correoDuplicado)
+          setWorking(false)
+          return
+        }
       }
 
       // 2. Insertar. Solo se crea la ficha (user_id queda null); la cuenta de Auth
@@ -583,7 +586,7 @@ export default function AdminProfesores() {
             [
               ['nombre', 'Nombre(s)', 'text', true],
               ['apellidos', 'Apellidos', 'text', true],
-              ['correo', 'Correo institucional', 'email', true],
+              ['correo', 'Correo institucional', 'email', false],
               ['numero_empleado', 'Número de empleado', 'text', false],
               ['telefono', 'Teléfono', 'tel', false],
             ] as const
@@ -855,7 +858,7 @@ export default function AdminProfesores() {
                   <div className="rounded-lg bg-udeg-azul-light px-3 py-2 text-xs text-udeg-azul">
                     Para darle acceso de administrador, ejecuta en terminal:
                     <code className="mt-1 block break-all font-mono text-udeg-azul-dark">
-                      node --env-file=.env crear_admin.js {rolTarget.profesor.correo}{' '}
+                      node --env-file=.env crear_admin.js {rolTarget.profesor.correo ?? '[correo]'}{' '}
                       [contraseña_temporal]
                     </code>
                   </div>
@@ -958,7 +961,7 @@ function ProfesorFila({
             {p.apellidos}, {p.nombre}
           </span>
         </td>
-        <td className="px-4 py-3 text-gray-600">{p.correo}</td>
+        <td className="px-4 py-3 text-gray-600">{p.correo ?? '—'}</td>
         <td className="px-4 py-3 text-gray-600">{p.numero_empleado ?? '—'}</td>
         <td className="px-4 py-3">
           <span

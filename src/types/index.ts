@@ -11,7 +11,8 @@ export interface Profesor {
   id: string
   nombre: string
   apellidos: string
-  correo: string
+  /** Opcional: los maestros entran con número de empleado + NIP, no con correo */
+  correo: string | null
   numero_empleado: string | null
   telefono: string | null
   activo: boolean
