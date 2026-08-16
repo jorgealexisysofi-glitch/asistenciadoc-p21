@@ -5,18 +5,15 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
-const OCULTAR_KEY = 'asistenciadoc:install-dismissed'
-
 /**
  * Expone el prompt de instalación de la PWA.
- * `instalable` es true solo si el navegador disparó beforeinstallprompt,
- * la app no está ya instalada y el usuario no descartó el banner antes.
+ * `instalable` es true si el navegador disparó beforeinstallprompt y la app no
+ * está instalada. Descartar el banner solo lo oculta durante la sesión actual:
+ * vuelve a aparecer en la siguiente visita/recarga mientras no se instale.
  */
 export function useInstallPrompt() {
   const [evento, setEvento] = useState<BeforeInstallPromptEvent | null>(null)
-  const [oculto, setOculto] = useState(
-    () => localStorage.getItem(OCULTAR_KEY) === '1'
-  )
+  const [oculto, setOculto] = useState(false)
 
   useEffect(() => {
     function onBeforeInstall(e: Event) {
@@ -46,7 +43,7 @@ export function useInstallPrompt() {
   }
 
   function descartar() {
-    localStorage.setItem(OCULTAR_KEY, '1')
+    // Solo se oculta en esta sesión; reaparece en la próxima carga
     setOculto(true)
   }
 
