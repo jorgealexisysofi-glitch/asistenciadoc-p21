@@ -1,12 +1,17 @@
+import { useLocation } from 'react-router-dom'
 import { useInstallPrompt } from '../hooks/useInstallPrompt'
 import { IconDownload, IconX } from './icons'
 import Logo from './Logo'
 
+/** Rutas donde NO debe salir el banner (p. ej. el punto de control fijo) */
+const RUTAS_SIN_BANNER = ['/checador']
+
 /** Banner flotante "Instalar app" que aparece si la PWA es instalable */
 export default function InstallBanner() {
   const { instalable, instalar, descartar } = useInstallPrompt()
+  const { pathname } = useLocation()
 
-  if (!instalable) return null
+  if (!instalable || RUTAS_SIN_BANNER.includes(pathname)) return null
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 px-4 pb-4">
