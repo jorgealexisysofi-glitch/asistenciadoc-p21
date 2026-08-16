@@ -3,13 +3,31 @@ import toast from 'react-hot-toast'
 import AdminLayout from '../components/AdminLayout'
 import Modal from '../components/Modal'
 import { SkeletonTable } from '../components/Skeleton'
-import { IconChevronDown, IconKey, IconPencil, IconPlus, IconTrash } from '../components/icons'
+import {
+  IconChevronDown,
+  IconDownload,
+  IconKey,
+  IconPencil,
+  IconPlus,
+  IconTrash,
+} from '../components/icons'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { formatHora, normalizar } from '../lib/asistencia'
 import type { Aula, Horario, Materia, Profesor, Rol } from '../types'
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+
+/** 'HH:MM[:SS]' → minutos desde medianoche */
+function aMin(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number)
+  return h * 60 + (m ?? 0)
+}
+
+/** Formatea horas (con hasta 1 decimal, sin ".0") */
+function fmtHoras(horas: number): string {
+  return Number.isInteger(horas) ? String(horas) : horas.toFixed(1)
+}
 
 type Aviso = { tipo: 'ok' | 'error' | 'info'; mensaje: string } | null
 
@@ -441,6 +459,20 @@ export default function AdminProfesores() {
           Agregar profesor
         </button>
       </div>
+
+      {/* Contadores globales */}
+      {!loading && (
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:max-w-sm">
+          <div className="card text-center">
+            <p className="text-2xl font-bold text-udeg-azul">{profesores.length}</p>
+            <p className="text-xs font-medium text-gray-500">Profesores</p>
+          </div>
+          <div className="card text-center">
+            <p className="text-2xl font-bold text-udeg-naranja">{materias.length}</p>
+            <p className="text-xs font-medium text-gray-500">Materias registradas</p>
+          </div>
+        </div>
+      )}
 
       {aviso && (
         <p
@@ -1029,14 +1061,47 @@ function ProfesorFila({
       {expandido && (
         <tr className="border-b border-gray-50 bg-fondo/60">
           <td colSpan={6} className="px-4 py-4">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                Horarios de {p.nombre}
-              </h3>
-              <button onClick={onNuevoHorario} className="btn-ghost !px-3 !py-1.5 text-xs">
-                <IconPlus className="h-3.5 w-3.5" />
-                Agregar horario
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Horarios de {p.nombre}
+                </h3>
+                {horarios && horarios.length > 0 && (
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    <span className="font-semibold text-gray-700">
+                      {fmtHoras(
+                        horarios.reduce(
+                          (s, h) => s + (aMin(h.hora_fin) - aMin(h.hora_inicio)),
+                          0
+                        ) / 60
+                      )}{' '}
+                      h
+                    </span>{' '}
+                    de clase/semana ·{' '}
+                    <span className="font-semibold text-gray-700">
+                      {new Set(horarios.map((h) => h.materia?.nombre).filter(Boolean)).size}
+                    </span>{' '}
+                    materia(s)
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {horarios && horarios.length > 0 && (
+                  <a
+                    href={`/admin/horario/${p.id}`}
+                    target="_blank"
+                    rel="noopener"
+                    className="btn-ghost !px-3 !py-1.5 text-xs"
+                  >
+                    <IconDownload className="h-3.5 w-3.5" />
+                    Imprimir horario
+                  </a>
+                )}
+                <button onClick={onNuevoHorario} className="btn-ghost !px-3 !py-1.5 text-xs">
+                  <IconPlus className="h-3.5 w-3.5" />
+                  Agregar horario
+                </button>
+              </div>
             </div>
 
             {!horarios ? (

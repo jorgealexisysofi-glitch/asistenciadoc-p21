@@ -17,6 +17,7 @@ import AdminAulas from './pages/AdminAulas'
 import CambiarPasswordAdmin from './pages/CambiarPasswordAdmin'
 import AdminImportarHorarios from './pages/AdminImportarHorarios'
 import AdminAsignarAulas from './pages/AdminAsignarAulas'
+import AdminHorarioProfesor from './pages/AdminHorarioProfesor'
 
 export default function App() {
   return (
@@ -110,6 +111,14 @@ export default function App() {
             element={
               <ProtectedRoute requireRol="admin">
                 <AdminAsignarAulas />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/horario/:id"
+            element={
+              <ProtectedRoute requireRol="admin">
+                <AdminHorarioProfesor />
               </ProtectedRoute>
             }
           />
