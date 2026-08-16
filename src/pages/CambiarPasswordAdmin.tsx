@@ -34,15 +34,27 @@ export default function CambiarPasswordAdmin() {
     }
 
     setWorking(true)
-    const { error: errAuth } = await supabase.auth.updateUser({ password })
+    const { data, error: errAuth } = await supabase.auth.updateUser({ password })
     setWorking(false)
 
     if (errAuth) {
+      // Diagnóstico: mensaje exacto de Supabase en consola
+      console.error('[cambiar-password] updateUser falló:', errAuth)
+      const m = errAuth.message.toLowerCase()
       setError(
-        errAuth.message.toLowerCase().includes('different')
+        m.includes('different')
           ? 'La nueva contraseña debe ser distinta a la actual.'
-          : 'No se pudo actualizar la contraseña. Intenta de nuevo.'
+          : m.includes('should be at least') || m.includes('at least')
+            ? 'La contraseña es demasiado corta para las reglas del proyecto.'
+            : m.includes('reauthentication') || m.includes('session')
+              ? 'Tu sesión expiró. Cierra sesión, vuelve a entrar y reintenta.'
+              : `No se pudo actualizar: ${errAuth.message}`
       )
+      return
+    }
+
+    if (!data?.user) {
+      setError('No se recibió confirmación del cambio. Verifica tu sesión e intenta de nuevo.')
       return
     }
 
