@@ -50,6 +50,7 @@ export default function AdminTablero() {
 
   const registradas = clases.filter((c) => c.registrado).length
   const pendientes = clases.length - registradas
+  const salieron = clases.filter((c) => c.hora_salida).length
 
   const reloj_hora = reloj.toLocaleTimeString('es-MX', { hour12: false })
   const reloj_fecha = reloj.toLocaleDateString('es-MX', {
@@ -73,7 +74,7 @@ export default function AdminTablero() {
       </div>
 
       {!loading && (
-        <div className="mt-5 grid grid-cols-3 gap-3">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="card text-center">
             <p className={`font-bold text-udeg-azul ${full ? 'text-5xl' : 'text-3xl'}`}>{clases.length}</p>
             <p className="text-xs font-medium text-gray-500">Clases en curso</p>
@@ -85,6 +86,10 @@ export default function AdminTablero() {
           <div className="card text-center">
             <p className={`font-bold text-amber-600 ${full ? 'text-5xl' : 'text-3xl'}`}>{pendientes}</p>
             <p className="text-xs font-medium text-gray-500">Pendientes</p>
+          </div>
+          <div className="card text-center">
+            <p className={`font-bold text-udeg-azul ${full ? 'text-5xl' : 'text-3xl'}`}>{salieron}</p>
+            <p className="text-xs font-medium text-gray-500">Ya salieron</p>
           </div>
         </div>
       )}
