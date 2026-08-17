@@ -217,6 +217,21 @@ export interface BitacoraItem {
   materia_nombre: string | null
 }
 
+/** Fila del tablero "próximas clases" (RPC `get_proximas_clases`) */
+export interface ProximaClaseTablero {
+  horario_id: string
+  profesor_nombre: string
+  profesor_apellidos: string
+  materia_nombre: string
+  aula_nombre: string | null
+  hora_inicio: string
+  hora_fin: string
+  /** Minutos que faltan para que inicie la clase */
+  minutos_para: number
+  /** El profesor ya registró (raro, pero posible si llegó antes) */
+  registrado: boolean
+}
+
 /** Fila del tablero "clases en curso" (RPC `get_clases_en_curso`) */
 export interface ClaseEnCurso {
   horario_id: string

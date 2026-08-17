@@ -4,7 +4,7 @@ import AdminLayout from '../components/AdminLayout'
 import { SkeletonTable } from '../components/Skeleton'
 import { horaActual, hoyISO, supabase } from '../lib/supabase'
 import { formatHora, formatHoraRegistro } from '../lib/asistencia'
-import type { ClaseEnCurso } from '../types'
+import type { ClaseEnCurso, ProximaClaseTablero } from '../types'
 
 const REFRESCO_MS = 30_000
 
@@ -13,21 +13,25 @@ export default function AdminTablero() {
   const full = params.get('full') === '1'
 
   const [clases, setClases] = useState<ClaseEnCurso[]>([])
+  const [proximas, setProximas] = useState<ProximaClaseTablero[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [reloj, setReloj] = useState(new Date())
 
   const cargar = useCallback(async () => {
-    const { data, error: err } = await supabase.rpc('get_clases_en_curso', {
-      p_fecha: hoyISO(),
-      p_hora: horaActual(),
-    })
-    if (err) {
+    const fecha = hoyISO()
+    const hora = horaActual()
+    const [encurso, prox] = await Promise.all([
+      supabase.rpc('get_clases_en_curso', { p_fecha: fecha, p_hora: hora }),
+      supabase.rpc('get_proximas_clases', { p_fecha: fecha, p_hora: hora, p_minutos: 15 }),
+    ])
+    if (encurso.error) {
       setError('No se pudo cargar el tablero. ¿Iniciaste sesión como administrador?')
     } else {
       setError(null)
-      setClases((data ?? []) as ClaseEnCurso[])
+      setClases((encurso.data ?? []) as ClaseEnCurso[])
     }
+    if (!prox.error) setProximas((prox.data ?? []) as ProximaClaseTablero[])
     setLoading(false)
   }, [])
 
@@ -129,6 +133,47 @@ export default function AdminTablero() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Próximas clases (comienzan en ≤15 min) */}
+      {!loading && proximas.length > 0 && (
+        <div className="mt-6">
+          <h2 className={`mb-3 font-bold text-gray-800 ${full ? 'text-2xl' : 'text-lg'}`}>
+            Próximas clases <span className="text-gray-400">· comienzan en 15 min</span>
+          </h2>
+          <div className="card overflow-x-auto !p-0">
+            <table className={`w-full min-w-[640px] text-left ${full ? 'text-base' : 'text-sm'}`}>
+              <thead>
+                <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
+                  <th className="px-4 py-3 font-semibold">Empieza en</th>
+                  <th className="px-4 py-3 font-semibold">Profesor</th>
+                  <th className="px-4 py-3 font-semibold">Materia</th>
+                  <th className="px-4 py-3 font-semibold">Aula</th>
+                  <th className="px-4 py-3 font-semibold">Horario</th>
+                </tr>
+              </thead>
+              <tbody>
+                {proximas.map((c) => (
+                  <tr key={c.horario_id} className="border-b border-gray-50 last:border-0">
+                    <td className="px-4 py-3">
+                      <span className="badge bg-udeg-azul-light text-udeg-azul tabular-nums">
+                        {c.minutos_para <= 1 ? 'menos de 1 min' : `${c.minutos_para} min`}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-gray-800">
+                      {c.profesor_nombre} {c.profesor_apellidos}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{c.materia_nombre}</td>
+                    <td className="px-4 py-3 text-gray-600">{c.aula_nombre ?? 'Sin aula'}</td>
+                    <td className="px-4 py-3 tabular-nums text-gray-600">
+                      {formatHora(c.hora_inicio)}–{formatHora(c.hora_fin)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </>
