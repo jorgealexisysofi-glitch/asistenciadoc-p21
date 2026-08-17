@@ -183,6 +183,22 @@ export interface ReporteDetalle {
   motivo: string | null
 }
 
+/** Fila del historial propio del profesor (RPC `get_mi_asistencia`) */
+export interface MiAsistenciaItem {
+  horario_id: string
+  fecha: string
+  dia_semana: number
+  materia_nombre: string
+  aula_nombre: string | null
+  hora_inicio: string
+  hora_fin: string
+  hora_registro: string | null
+  estado: EstadoReporte
+  diferencia_min: number | null
+  justificado: boolean
+  motivo: string | null
+}
+
 /** Día no laborable (festivo/suspensión) */
 export interface DiaNoLaborable {
   fecha: string

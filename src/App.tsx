@@ -9,6 +9,7 @@ import Checador from './pages/Checador'
 import CambiarNIP from './pages/CambiarNIP'
 import ProfesorHome from './pages/ProfesorHome'
 import MiHorario from './pages/MiHorario'
+import MiAsistencia from './pages/MiAsistencia'
 import ValidarAsistencia from './pages/ValidarAsistencia'
 import Admin from './pages/Admin'
 import AdminProfesores from './pages/AdminProfesores'
@@ -59,6 +60,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <MiHorario />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mi-asistencia"
+            element={
+              <ProtectedRoute>
+                <MiAsistencia />
               </ProtectedRoute>
             }
           />

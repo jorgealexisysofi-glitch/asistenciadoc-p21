@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import Logo from './Logo'
-import { IconCalendar } from './icons'
+import { IconCalendar, IconChart } from './icons'
 
 const linkBase =
   'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors'
@@ -46,6 +46,10 @@ export default function Layout({ children }: { children: ReactNode }) {
           <NavLink to="/mi-horario" className={navClass}>
             <IconCalendar className="h-4 w-4" />
             Mi Horario
+          </NavLink>
+          <NavLink to="/mi-asistencia" className={navClass}>
+            <IconChart className="h-4 w-4" />
+            Mi Asistencia
           </NavLink>
           {isAdmin && (
             <NavLink to="/admin" className={navClass}>
