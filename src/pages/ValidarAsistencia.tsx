@@ -7,8 +7,14 @@ import Spinner from '../components/Spinner'
 import { useAuth } from '../hooks/useAuth'
 import { useBeaconDetection } from '../hooks/useBeaconDetection'
 import { horaActual, hoyISO, supabase } from '../lib/supabase'
-import { formatHora, TOLERANCIA_MIN } from '../lib/asistencia'
-import type { HorarioActivo, MetodoDeteccion, RegistroClase } from '../types'
+import {
+  FIRMAR_SALIDA_HABILITADO,
+  SALIDA_ANTES_MIN,
+  TOLERANCIA_MIN,
+  formatHora,
+  formatHoraRegistro,
+} from '../lib/asistencia'
+import type { ClaseSalida, HorarioActivo, MetodoDeteccion, RegistroClase } from '../types'
 
 type Resultado = { tipo: 'ok' | 'error' | 'info'; mensaje: string } | null
 
@@ -32,8 +38,10 @@ export default function ValidarAsistencia() {
   const [reloj, setReloj] = useState(new Date())
   const [horario, setHorario] = useState<HorarioActivo | null>(null)
   const [registro, setRegistro] = useState<RegistroClase | null>(null)
+  const [salida, setSalida] = useState<ClaseSalida | null>(null)
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
+  const [savingSalida, setSavingSalida] = useState(false)
   const [resultado, setResultado] = useState<Resultado>(null)
 
   const profesorId = profesor?.id
@@ -73,6 +81,17 @@ export default function ValidarAsistencia() {
         p_fecha: hoyISO(),
       })
       setRegistro(((reg ?? []) as RegistroClase[])[0] ?? null)
+    }
+
+    // Firmar salida (solo si la función está habilitada): clase cuya ventana de
+    // salida está abierta ahora, aunque la clase ya haya terminado hace poco.
+    if (FIRMAR_SALIDA_HABILITADO) {
+      const { data: sal } = await supabase.rpc('get_clase_para_salida', {
+        p_profesor_id: profesorId,
+        p_fecha: hoyISO(),
+        p_hora: horaActual(),
+      })
+      setSalida(((sal ?? []) as ClaseSalida[])[0] ?? null)
     }
     setLoading(false)
   }, [profesorId])
@@ -139,6 +158,23 @@ export default function ValidarAsistencia() {
     await registrar(metodo ?? horario.beacon_tipo ?? 'manual', beaconDetectado)
   }
 
+  async function firmarSalida() {
+    if (!profesorId || !salida) return
+    setSavingSalida(true)
+    const { error } = await supabase.rpc('registrar_salida', {
+      p_profesor_id: profesorId,
+      p_horario_id: salida.horario_id,
+      p_fecha: hoyISO(),
+    })
+    if (error) {
+      toast.error('No se pudo firmar la salida.')
+    } else {
+      toast.success('¡Salida firmada!')
+      await cargar()
+    }
+    setSavingSalida(false)
+  }
+
   const horaTexto = reloj.toLocaleTimeString('es-MX', { hour12: false })
 
   return (
@@ -165,15 +201,17 @@ export default function ValidarAsistencia() {
           administración.
         </p>
       ) : !horario ? (
-        <div className="card mt-5 flex flex-col gap-4">
-          <p className="text-sm text-gray-600">
-            No tienes clase programada en este momento, por lo que no hay asistencia que
-            validar.
-          </p>
-          <Link to="/home" className="btn-ghost">
-            ← Volver al inicio
-          </Link>
-        </div>
+        FIRMAR_SALIDA_HABILITADO && salida ? null : (
+          <div className="card mt-5 flex flex-col gap-4">
+            <p className="text-sm text-gray-600">
+              No tienes clase programada en este momento, por lo que no hay asistencia que
+              validar.
+            </p>
+            <Link to="/home" className="btn-ghost">
+              ← Volver al inicio
+            </Link>
+          </div>
+        )
       ) : (
         <>
           {/* Estado de la señal */}
@@ -313,11 +351,58 @@ export default function ValidarAsistencia() {
               </>
             )}
 
+            {/* Firmar salida — DESACTIVADO por ahora (ver FIRMAR_SALIDA_HABILITADO) */}
+            {!FIRMAR_SALIDA_HABILITADO && (
+              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-3 py-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-gray-500">Firmar salida</p>
+                  <span className="badge bg-gray-200 text-gray-500">Desactivado</span>
+                </div>
+                <button
+                  type="button"
+                  disabled
+                  className="btn-secondary mt-2 w-full cursor-not-allowed opacity-60"
+                >
+                  Firmar salida
+                </button>
+                <p className="mt-2 text-xs text-gray-400">
+                  Se podrá firmar en los últimos {SALIDA_ANTES_MIN} min de la clase. Función
+                  desactivada por ahora.
+                </p>
+              </div>
+            )}
+
             <Link to="/home" className="btn-ghost">
               ← Volver al inicio
             </Link>
           </section>
         </>
+      )}
+
+      {/* Tarjeta funcional de salida (solo cuando la función está habilitada) */}
+      {!loading && FIRMAR_SALIDA_HABILITADO && salida && (
+        <section className="card mt-4 flex flex-col gap-3">
+          <div>
+            <p className="text-lg font-bold text-udeg-azul">Firmar salida</p>
+            <p className="text-sm text-gray-500">
+              {salida.materia_nombre} · {formatHora(salida.hora_inicio)}–
+              {formatHora(salida.hora_fin)}
+            </p>
+          </div>
+          {salida.hora_salida ? (
+            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
+              Salida firmada a las {formatHoraRegistro(salida.hora_salida)}. ✔
+            </p>
+          ) : (
+            <button
+              onClick={() => void firmarSalida()}
+              disabled={savingSalida}
+              className="btn-primary"
+            >
+              {savingSalida ? 'Firmando…' : 'Firmar salida'}
+            </button>
+          )}
+        </section>
       )}
     </Layout>
   )

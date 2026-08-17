@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import Logo from '../components/Logo'
 import EstadoBadge from '../components/EstadoBadge'
 import { horaActual, hoyISO, supabase } from '../lib/supabase'
-import { formatHora, formatHoraRegistro } from '../lib/asistencia'
+import { CHECADOR_EN_MANTENIMIENTO, formatHora, formatHoraRegistro } from '../lib/asistencia'
 import type { EstadoAsistencia, HorarioActivo, RegistroClase, SesionProfesor } from '../types'
 
 /** Segundos que se muestra el resultado antes de limpiar para el siguiente maestro */
@@ -152,6 +152,42 @@ export default function Checador() {
     day: 'numeric',
     month: 'long',
   })
+
+  // Punto de control en mantenimiento: no se registra desde el kiosco.
+  if (CHECADOR_EN_MANTENIMIENTO) {
+    return (
+      <div className="flex min-h-screen flex-col bg-fondo">
+        <div className="h-2 bg-udeg-naranja" />
+        <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-8">
+          <div className="mb-6 flex flex-col items-center text-center">
+            <Logo size={72} />
+            <h1 className="mt-4 text-2xl font-bold text-udeg-azul">Punto de Control</h1>
+            <p className="mt-1 text-sm text-gray-500">Preparatoria 21</p>
+            <p className="mt-3 font-mono text-4xl font-bold tabular-nums text-udeg-naranja">
+              {horaTexto}
+            </p>
+            <p className="text-sm capitalize text-gray-500">{fechaTexto}</p>
+          </div>
+
+          <div className="card flex flex-col items-center gap-3 text-center">
+            <span className="text-5xl" aria-hidden="true">
+              🛠️
+            </span>
+            <p className="text-lg font-bold text-gray-800">En mantenimiento</p>
+            <p className="text-sm text-gray-600">
+              El punto de control está temporalmente fuera de servicio. Registra tu
+              asistencia desde la app en tu teléfono.
+            </p>
+          </div>
+
+          <p className="mt-6 text-center text-xs text-gray-400">
+            Si tienes problemas para registrar, acude a Secretaría Académica.
+          </p>
+        </main>
+        <div className="h-2 bg-udeg-azul" />
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-fondo">

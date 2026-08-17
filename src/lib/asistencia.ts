@@ -3,6 +3,24 @@ import type { EstadoAsistencia } from '../types'
 /** Minutos de tolerancia tras la hora de inicio para contar como presente */
 export const TOLERANCIA_MIN = 10
 
+/**
+ * Firmar salida al terminar la clase. DESACTIVADO por ahora: mientras sea
+ * `false`, el botón aparece en gris con la etiqueta «Desactivado» y no hace
+ * nada. Para habilitarlo en el futuro, cambia a `true` y vuelve a desplegar.
+ */
+export const FIRMAR_SALIDA_HABILITADO: boolean = false
+
+/** Ventana para firmar salida: desde N min antes del fin y hasta N min después */
+export const SALIDA_ANTES_MIN = 30
+export const SALIDA_DESPUES_MIN = 30
+
+/**
+ * Punto de control de prefectura (checador de kiosco, ruta /checador) en
+ * mantenimiento. Mientras sea `true`, la pantalla muestra un aviso y no permite
+ * registrar. Para reactivarlo, cambia a `false` y vuelve a desplegar.
+ */
+export const CHECADOR_EN_MANTENIMIENTO: boolean = true
+
 /** Estado del marcaje según la hora actual vs. la hora de inicio de la clase */
 export function calcularEstado(horaInicio: string): Exclude<EstadoAsistencia, 'ausente'> {
   const [h, m] = horaInicio.split(':').map(Number)

@@ -151,6 +151,17 @@ export interface HistorialItem {
   aula_nombre: string | null
 }
 
+/** Clase con ventana de salida abierta (RPC `get_clase_para_salida`) */
+export interface ClaseSalida {
+  horario_id: string
+  materia_nombre: string
+  aula_nombre: string | null
+  hora_inicio: string
+  hora_fin: string
+  /** timestamptz de la salida ya firmada, o null si aún no firma */
+  hora_salida: string | null
+}
+
 /** Fila devuelta por `get_registro_clase` y `registrar_asistencia` */
 export interface RegistroClase {
   id: string
