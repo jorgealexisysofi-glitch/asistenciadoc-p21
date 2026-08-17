@@ -165,6 +165,7 @@ export interface ReporteDetalle {
   profesor_id: string
   profesor_nombre: string
   profesor_apellidos: string
+  horario_id: string
   /** Fecha en formato YYYY-MM-DD */
   fecha: string
   dia_semana: number
@@ -177,4 +178,21 @@ export interface ReporteDetalle {
   estado: EstadoReporte
   /** Minutos vs hora programada (positivo = tarde); null si no hubo registro */
   diferencia_min: number | null
+  /** La clase está marcada como justificada */
+  justificado: boolean
+  motivo: string | null
+}
+
+/** Fila del tablero "clases en curso" (RPC `get_clases_en_curso`) */
+export interface ClaseEnCurso {
+  horario_id: string
+  profesor_nombre: string
+  profesor_apellidos: string
+  materia_nombre: string
+  aula_nombre: string | null
+  hora_inicio: string
+  hora_fin: string
+  registrado: boolean
+  estado: EstadoAsistencia | null
+  hora_registro: string | null
 }

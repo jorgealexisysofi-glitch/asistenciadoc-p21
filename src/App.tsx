@@ -18,6 +18,8 @@ import CambiarPasswordAdmin from './pages/CambiarPasswordAdmin'
 import AdminImportarHorarios from './pages/AdminImportarHorarios'
 import AdminAsignarAulas from './pages/AdminAsignarAulas'
 import AdminHorarioProfesor from './pages/AdminHorarioProfesor'
+import AdminTablero from './pages/AdminTablero'
+import AdminActa from './pages/AdminActa'
 
 export default function App() {
   return (
@@ -119,6 +121,22 @@ export default function App() {
             element={
               <ProtectedRoute requireRol="admin">
                 <AdminHorarioProfesor />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/tablero"
+            element={
+              <ProtectedRoute requireRol="admin">
+                <AdminTablero />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/acta/:id"
+            element={
+              <ProtectedRoute requireRol="admin">
+                <AdminActa />
               </ProtectedRoute>
             }
           />

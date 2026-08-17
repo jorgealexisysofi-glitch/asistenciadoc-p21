@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import Logo from './Logo'
 import {
   IconBuilding,
+  IconCalendar,
   IconChart,
   IconHome,
   IconKey,
@@ -20,6 +21,7 @@ export interface Crumb {
 
 const NAV = [
   { to: '/admin', label: 'Dashboard', icon: IconHome, end: true },
+  { to: '/admin/tablero', label: 'Clases ahora', icon: IconCalendar, end: false },
   { to: '/admin/profesores', label: 'Profesores', icon: IconUsers, end: false },
   { to: '/admin/reportes', label: 'Reportes', icon: IconChart, end: false },
   { to: '/admin/aulas', label: 'Aulas / Beacons', icon: IconBuilding, end: false },
