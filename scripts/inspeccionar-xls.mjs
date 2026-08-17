@@ -1,10 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { read, utils } from 'xlsx'
 
-const ruta = 'C:/Users/Jorge Herrera/Downloads/2026 CALENDARIO(2026b).csv'
+const ruta = 'C:/Users/Jorge Herrera/Downloads/pa2026b con horarios.xls'
 const buf = readFileSync(ruta)
 
-// Réplica de la lectura del importador para CSV (Windows-1252 si hay mojibake)
 const esCSV = /\.csv$/i.test(ruta)
 let wb
 if (esCSV) {
@@ -14,38 +13,32 @@ if (esCSV) {
 } else {
   wb = read(buf, { type: 'buffer' })
 }
-console.log('HOJAS:', wb.SheetNames)
-
-const ws = wb.Sheets[wb.SheetNames[0]]
-const filas = utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' })
-  .filter((f) => f.some((c) => String(c ?? '').trim() !== ''))
+console.log('HOJAS:', JSON.stringify(wb.SheetNames))
 
 const normalizar = (t) =>
   String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim().replace(/\s+/g, ' ')
 
-function parseHora(v) {
-  if (v == null || v === '') return null
-  if (typeof v === 'number' && v >= 0 && v < 1) {
-    const m = Math.round(v * 1440)
-    return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}:00`
-  }
-  const m = String(v).match(/(\d{1,2})\s*[:.]\s*(\d{2})/)
-  if (m && +m[1] <= 23 && +m[2] <= 59) return `${m[1].padStart(2, '0')}:${m[2].padStart(2, '0')}:00`
-  const s = String(v).trim().match(/^(\d{1,2})$/)
-  if (s && +s[1] <= 23) return `${s[1].padStart(2, '0')}:00:00`
-  return null
-}
-function parseRango(t) {
-  const p = String(t).split(/[-–—]/)
-  if (p.length !== 2) return null
-  const a = parseHora(p[0]), b = parseHora(p[1])
-  if (!a || !b || b <= a) return null
-  return { a, b }
+// Prueba la detección de hoja del importador (2026a / 2026b, o hoja única)
+const HOJAS_VALIDAS = ['2026a', '2026b']
+const hoja =
+  wb.SheetNames.find((n) => HOJAS_VALIDAS.includes(n.trim().toLowerCase())) ??
+  (wb.SheetNames.length === 1 ? wb.SheetNames[0] : null)
+console.log('Hoja que usaría el importador:', JSON.stringify(hoja))
+
+if (!hoja) {
+  console.log('⚠️ El importador NO sabría qué hoja usar (varias hojas y ninguna se llama 2026a/2026b).')
+  process.exit(0)
 }
 
-const DIAS = [['l','lunes'],['m','martes'],['i','miercoles'],['j','jueves'],['v','viernes']]
+const ws = wb.Sheets[hoja]
+const filas = utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' })
+  .filter((f) => f.some((c) => String(c ?? '').trim() !== ''))
+
 const cab = filas[0].map(normalizar)
+console.log('\nEncabezados:', JSON.stringify(filas[0]))
+
 const buscar = (pred) => cab.findIndex(pred)
+const DIAS = [['l','lunes'],['m','martes'],['i','miercoles'],['j','jueves'],['v','viernes']]
 const idx = {
   codigo: buscar((h) => h === 'codigo'),
   nombre: buscar((h) => h === 'nombre'),
@@ -54,32 +47,17 @@ const idx = {
   aula: buscar((h) => h === 'aula'),
   dias: DIAS.map((al) => buscar((h) => al.includes(h))),
 }
-console.log('Encabezado Código detectado como:', JSON.stringify(cab[idx.codigo]))
 console.log('Columnas detectadas:', JSON.stringify(idx))
 
-let filasDatos = 0, sinCodigo = 0, celdas = 0, ok = 0, mal = 0, conAula = 0
-const ejMal = []
-for (let i = 1; i < filas.length; i++) {
-  const f = filas[i]
-  if (f.every((c) => String(c ?? '').trim() === '')) continue
-  filasDatos++
-  if (!String(f[idx.codigo] ?? '').trim()) sinCodigo++
-  const aula = idx.aula >= 0 ? String(f[idx.aula] ?? '').trim() : ''
-  for (const col of idx.dias) {
-    const v = String(f[col] ?? '').trim()
-    if (!v) continue
-    celdas++
-    if (parseRango(v)) { ok++; if (aula) conAula++ }
-    else { mal++; if (ejMal.length < 12) ejMal.push(`fila ${i + 1}: «${v}»`) }
-  }
+const faltan = []
+if (idx.codigo < 0) faltan.push('Código')
+if (idx.nombre < 0) faltan.push('Nombre')
+if (idx.materia < 0) faltan.push('Materia')
+idx.dias.forEach((d, i) => { if (d < 0) faltan.push('Día ' + DIAS[i][0].toUpperCase()) })
+
+if (faltan.length) {
+  console.log('\n❌ El importador RECHAZARÍA el archivo. Faltan columnas:', faltan.join(', '))
+} else {
+  console.log('\n✅ El importador SÍ lo entendería. Total filas de datos:', filas.length - 1)
+  console.log('   ¿Trae columna AULA?', idx.aula >= 0 ? 'sí' : 'no')
 }
-console.log('\n=== PARSEO (CSV 2026b real) ===')
-console.log('Filas de datos:', filasDatos)
-console.log('Filas sin Código:', sinCodigo)
-console.log('Celdas de día con contenido:', celdas)
-console.log('Horarios OK:', ok, '(con aula en el archivo:', conAula + ')')
-console.log('Rangos mal formados:', mal)
-if (ejMal.length) console.log('Ejemplos malos:\n  ' + ejMal.join('\n  '))
-// Muestra de nombres para verificar acentos
-console.log('\nMuestra de nombres (acentos):')
-;[54, 78, 94].forEach((r) => filas[r] && console.log('  ', filas[r][idx.nombre]))

@@ -133,6 +133,10 @@ end;
 $$;
 
 -- ---------- 4. generar_reporte_asistencia v2 ---------------------------------
+-- Se agregan columnas al retorno (horario_id, justificado, motivo), así que hay
+-- que borrar la versión anterior antes de recrearla.
+drop function if exists public.generar_reporte_asistencia(date, date, uuid);
+
 create or replace function public.generar_reporte_asistencia(
   p_fecha_desde date,
   p_fecha_hasta date,
