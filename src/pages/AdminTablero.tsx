@@ -45,15 +45,24 @@ export default function AdminTablero() {
 
   return (
     <AdminLayout breadcrumb={[{ label: 'Clases ahora' }]}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Clases en curso ahora</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Se actualiza solo cada 30 s. Quién tiene clase en este momento y si ya registró.
-          </p>
-        </div>
-        <p className="rounded-xl bg-udeg-azul-light px-4 py-2 font-mono text-xl font-bold tabular-nums text-udeg-azul">
+      <div>
+        <h1 className="text-xl font-bold text-gray-900">Clases en curso ahora</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Se actualiza solo cada 30 s. Quién tiene clase en este momento y si ya registró.
+        </p>
+      </div>
+
+      {/* Reloj grande, tipo reloj de pared */}
+      <div className="mt-4 rounded-2xl bg-udeg-azul-light py-6 text-center">
+        <p className="font-mono text-6xl font-bold tabular-nums text-udeg-azul sm:text-7xl">
           {reloj.toLocaleTimeString('es-MX', { hour12: false })}
+        </p>
+        <p className="mt-1 text-sm capitalize text-udeg-azul/70">
+          {reloj.toLocaleDateString('es-MX', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+          })}
         </p>
       </div>
 
