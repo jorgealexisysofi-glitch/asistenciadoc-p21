@@ -20,6 +20,8 @@ import AdminAsignarAulas from './pages/AdminAsignarAulas'
 import AdminHorarioProfesor from './pages/AdminHorarioProfesor'
 import AdminTablero from './pages/AdminTablero'
 import AdminActa from './pages/AdminActa'
+import AdminDiasNoLaborables from './pages/AdminDiasNoLaborables'
+import AdminBitacora from './pages/AdminBitacora'
 
 export default function App() {
   return (
@@ -137,6 +139,22 @@ export default function App() {
             element={
               <ProtectedRoute requireRol="admin">
                 <AdminActa />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/dias-no-laborables"
+            element={
+              <ProtectedRoute requireRol="admin">
+                <AdminDiasNoLaborables />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/bitacora"
+            element={
+              <ProtectedRoute requireRol="admin">
+                <AdminBitacora />
               </ProtectedRoute>
             }
           />

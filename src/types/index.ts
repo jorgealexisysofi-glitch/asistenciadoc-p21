@@ -183,6 +183,24 @@ export interface ReporteDetalle {
   motivo: string | null
 }
 
+/** Día no laborable (festivo/suspensión) */
+export interface DiaNoLaborable {
+  fecha: string
+  motivo: string
+  created_at: string
+}
+
+/** Fila de la bitácora de correcciones (RPC `get_bitacora`) */
+export interface BitacoraItem {
+  created_at: string
+  admin_email: string | null
+  accion: string
+  detalle: string
+  fecha: string | null
+  profesor_nombre: string | null
+  materia_nombre: string | null
+}
+
 /** Fila del tablero "clases en curso" (RPC `get_clases_en_curso`) */
 export interface ClaseEnCurso {
   horario_id: string

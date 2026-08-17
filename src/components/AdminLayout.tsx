@@ -24,6 +24,8 @@ const NAV = [
   { to: '/admin/tablero', label: 'Clases ahora', icon: IconCalendar, end: false },
   { to: '/admin/profesores', label: 'Profesores', icon: IconUsers, end: false },
   { to: '/admin/reportes', label: 'Reportes', icon: IconChart, end: false },
+  { to: '/admin/dias-no-laborables', label: 'Días no laborables', icon: IconCalendar, end: false },
+  { to: '/admin/bitacora', label: 'Bitácora', icon: IconChart, end: false },
   { to: '/admin/aulas', label: 'Aulas / Beacons', icon: IconBuilding, end: false },
   { to: '/admin/horarios', label: 'Importar horarios', icon: IconUpload, end: false },
   { to: '/admin/asignar-aulas', label: 'Asignar aulas', icon: IconBuilding, end: false },

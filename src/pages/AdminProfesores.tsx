@@ -95,6 +95,10 @@ export default function AdminProfesores() {
   // Modal de confirmación de eliminación
   const [deleteTarget, setDeleteTarget] = useState<Profesor | null>(null)
 
+  // Fusión de duplicados: origen (se elimina) → destino
+  const [fusionOrigen, setFusionOrigen] = useState<Profesor | null>(null)
+  const [fusionDestino, setFusionDestino] = useState('')
+
   // Fila expandida con horarios
   const [expandido, setExpandido] = useState<string | null>(null)
   const [horarios, setHorarios] = useState<Record<string, Horario[]>>({})
@@ -283,6 +287,24 @@ export default function AdminProfesores() {
     if (error) setAviso({ tipo: 'error', mensaje: 'No se pudo cambiar el estado.' })
     await cargar()
     setWorking(false)
+  }
+
+  async function confirmarFusion() {
+    if (!fusionOrigen || !fusionDestino) return
+    setWorking(true)
+    const { error } = await supabase.rpc('fusionar_profesores', {
+      p_origen: fusionOrigen.id,
+      p_destino: fusionDestino,
+    })
+    setWorking(false)
+    if (error) {
+      toast.error('No se pudo fusionar. ¿Iniciaste sesión como administrador?')
+      return
+    }
+    toast.success('Profesores fusionados')
+    setFusionOrigen(null)
+    setFusionDestino('')
+    await cargar()
   }
 
   async function confirmarEliminar() {
@@ -662,9 +684,9 @@ export default function AdminProfesores() {
           </button>
         </form>
 
-        {/* Eliminar profesor (solo en edición), separado y abajo a la izquierda */}
+        {/* Acciones extra (solo en edición) */}
         {editandoExistente && (
-          <div className="mt-4 border-t border-gray-100 pt-3">
+          <div className="mt-4 flex items-center justify-between gap-3 border-t border-gray-100 pt-3">
             <button
               type="button"
               onClick={() => {
@@ -676,8 +698,77 @@ export default function AdminProfesores() {
             >
               Eliminar profesor
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                const p = editandoExistente
+                setEditando(null)
+                setFusionOrigen(p)
+                setFusionDestino('')
+              }}
+              className="text-sm font-semibold text-udeg-azul transition-colors hover:underline"
+            >
+              Fusionar con otro…
+            </button>
           </div>
         )}
+      </Modal>
+
+      {/* Modal de fusión de profesores duplicados */}
+      <Modal
+        open={fusionOrigen !== null}
+        title="Fusionar profesores"
+        onClose={() => setFusionOrigen(null)}
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-gray-600">
+            Une la ficha de{' '}
+            <span className="font-semibold text-gray-800">
+              {fusionOrigen?.nombre} {fusionOrigen?.apellidos}
+            </span>{' '}
+            en otro profesor: sus horarios y registros se moverán y esta ficha se{' '}
+            <span className="font-semibold">eliminará</span>.
+          </p>
+          <div>
+            <label htmlFor="fusion-destino" className="mb-1 block text-xs font-semibold text-gray-500">
+              Mantener y mover todo hacia…
+            </label>
+            <select
+              id="fusion-destino"
+              className="input"
+              value={fusionDestino}
+              onChange={(e) => setFusionDestino(e.target.value)}
+            >
+              <option value="">Selecciona el profesor destino…</option>
+              {profesores
+                .filter((p) => p.id !== fusionOrigen?.id)
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.apellidos}, {p.nombre}
+                    {p.numero_empleado ? ` · ${p.numero_empleado}` : ''}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setFusionOrigen(null)}
+              disabled={working}
+              className="btn-ghost flex-1"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => void confirmarFusion()}
+              disabled={working || !fusionDestino}
+              className="btn-primary flex-1"
+            >
+              {working ? 'Fusionando…' : 'Fusionar'}
+            </button>
+          </div>
+        </div>
       </Modal>
 
       {/* Modal de confirmación de eliminación */}
