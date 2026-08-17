@@ -42,6 +42,7 @@ interface ResumenProfesor {
   total: number
   pct: number | null
   avgLlegada: string | null
+  avgSalida: string | null
   avgDif: number | null
 }
 
@@ -119,7 +120,13 @@ export default function AdminReportes() {
   const resumen = useMemo<ResumenProfesor[]>(() => {
     const mapa = new Map<
       string,
-      ResumenProfesor & { sumLlegada: number; nLlegada: number; sumDif: number }
+      ResumenProfesor & {
+        sumLlegada: number
+        nLlegada: number
+        sumDif: number
+        sumSalida: number
+        nSalida: number
+      }
     >()
     for (const r of detalle) {
       let fila = mapa.get(r.profesor_id)
@@ -135,10 +142,13 @@ export default function AdminReportes() {
           total: 0,
           pct: null,
           avgLlegada: null,
+          avgSalida: null,
           avgDif: null,
           sumLlegada: 0,
           nLlegada: 0,
           sumDif: 0,
+          sumSalida: 0,
+          nSalida: 0,
         }
         mapa.set(r.profesor_id, fila)
       }
@@ -153,6 +163,10 @@ export default function AdminReportes() {
         fila.sumDif += r.diferencia_min ?? 0
         fila.nLlegada++
       }
+      if (r.hora_salida && !r.justificado) {
+        fila.sumSalida += minutosDelDia(r.hora_salida)
+        fila.nSalida++
+      }
     }
     return [...mapa.values()]
       .map((f) => {
@@ -161,6 +175,7 @@ export default function AdminReportes() {
           ...f,
           pct: base > 0 ? Math.round(((f.presente + f.tarde) / base) * 100) : null,
           avgLlegada: f.nLlegada > 0 ? minutosAHora(f.sumLlegada / f.nLlegada) : null,
+          avgSalida: f.nSalida > 0 ? minutosAHora(f.sumSalida / f.nSalida) : null,
           avgDif: f.nLlegada > 0 ? Math.round(f.sumDif / f.nLlegada) : null,
         }
       })
@@ -192,6 +207,7 @@ export default function AdminReportes() {
       'Total clases': r.total,
       '% Asistencia': r.pct ?? '',
       'Llegada promedio': r.avgLlegada ?? '',
+      'Salida promedio': r.avgSalida ?? '',
     }))
     const hojaDetalle = detalle.map((r) => ({
       Fecha: formatFecha(r.fecha),
@@ -274,13 +290,14 @@ export default function AdminReportes() {
                 <th className="px-4 py-3 text-center font-semibold">Justif.</th>
                 <th className="px-4 py-3 text-center font-semibold">% Asist.</th>
                 <th className="px-4 py-3 text-center font-semibold">Llegada</th>
+                <th className="px-4 py-3 text-center font-semibold">Salida</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
               {resumen.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
                     Sin clases en el rango seleccionado.
                   </td>
                 </tr>
@@ -352,6 +369,7 @@ function FilaResumen({ resumen: r, detalle, desde, hasta, expandido, onToggle, o
           {r.avgLlegada ?? '—'}
           {r.avgDif != null && <span className="ml-1 text-xs text-gray-400">({r.avgDif > 0 ? '+' : ''}{r.avgDif}m)</span>}
         </td>
+        <td className="px-4 py-3 text-center text-gray-600">{r.avgSalida ?? '—'}</td>
         <td className="px-4 py-3 text-right">
           <span className="text-xs font-semibold text-udeg-azul">{expandido ? 'Ocultar' : 'Ver detalle'}</span>
         </td>
@@ -359,7 +377,7 @@ function FilaResumen({ resumen: r, detalle, desde, hasta, expandido, onToggle, o
 
       {expandido && (
         <tr className="border-b border-gray-50 bg-fondo/60">
-          <td colSpan={8} className="px-4 py-4">
+          <td colSpan={9} className="px-4 py-4">
             <div className="mb-2 flex justify-end">
               <Link
                 to={`/admin/acta/${r.id}?desde=${desde}&hasta=${hasta}`}
