@@ -122,9 +122,16 @@ export default function AdminTablero() {
                   </td>
                   <td className="px-4 py-3">
                     {c.registrado ? (
-                      <span className="badge bg-emerald-50 text-emerald-700">
-                        Registró{c.hora_registro ? ` · ${formatHoraRegistro(c.hora_registro)}` : ''}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="badge bg-emerald-50 text-emerald-700">
+                          Entró{c.hora_registro ? ` · ${formatHoraRegistro(c.hora_registro)}` : ''}
+                        </span>
+                        {c.hora_salida && (
+                          <span className="badge bg-udeg-azul-light text-udeg-azul">
+                            Salió · {formatHoraRegistro(c.hora_salida)}
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <span className="badge bg-amber-50 text-amber-700">Pendiente</span>
                     )}

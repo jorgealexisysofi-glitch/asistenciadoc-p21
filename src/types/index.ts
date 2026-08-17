@@ -186,6 +186,8 @@ export interface ReporteDetalle {
   hora_fin: string
   /** timestamptz del registro, o null si fue falta */
   hora_registro: string | null
+  /** timestamptz de la salida firmada, o null si no firmó salida */
+  hora_salida: string | null
   estado: EstadoReporte
   /** Minutos vs hora programada (positivo = tarde); null si no hubo registro */
   diferencia_min: number | null
@@ -257,4 +259,6 @@ export interface ClaseEnCurso {
   registrado: boolean
   estado: EstadoAsistencia | null
   hora_registro: string | null
+  /** timestamptz de la salida firmada, o null si no firmó salida */
+  hora_salida: string | null
 }

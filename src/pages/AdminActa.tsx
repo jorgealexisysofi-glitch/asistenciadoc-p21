@@ -143,7 +143,8 @@ export default function AdminActa() {
                     <th className="py-1.5 font-semibold">Día</th>
                     <th className="py-1.5 font-semibold">Materia</th>
                     <th className="py-1.5 font-semibold">Programada</th>
-                    <th className="py-1.5 font-semibold">Registro</th>
+                    <th className="py-1.5 font-semibold">Entrada</th>
+                    <th className="py-1.5 font-semibold">Salida</th>
                     <th className="py-1.5 font-semibold">Estado</th>
                   </tr>
                 </thead>
@@ -158,6 +159,9 @@ export default function AdminActa() {
                       </td>
                       <td className="py-1.5 tabular-nums text-gray-600">
                         {d.hora_registro ? formatHoraRegistro(d.hora_registro) : '—'}
+                      </td>
+                      <td className="py-1.5 tabular-nums text-gray-600">
+                        {d.hora_salida ? formatHoraRegistro(d.hora_salida) : '—'}
                       </td>
                       <td className="py-1.5 font-semibold">
                         {d.justificado

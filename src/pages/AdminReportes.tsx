@@ -201,6 +201,7 @@ export default function AdminReportes() {
       Aula: r.aula_nombre ?? 'Sin aula',
       'Hora programada': `${formatHora(r.hora_inicio)}-${formatHora(r.hora_fin)}`,
       'Hora real': r.hora_registro ? formatHoraRegistro(r.hora_registro) : '',
+      'Hora salida': r.hora_salida ? formatHoraRegistro(r.hora_salida) : '',
       Estado: r.justificado ? 'Justificada' : etiquetaEstado[r.estado],
       Motivo: r.motivo ?? '',
       'Diferencia (min)': r.diferencia_min ?? '',
@@ -376,7 +377,8 @@ function FilaResumen({ resumen: r, detalle, desde, hasta, expandido, onToggle, o
                     <th className="px-3 py-2 font-semibold">Día</th>
                     <th className="px-3 py-2 font-semibold">Materia</th>
                     <th className="px-3 py-2 font-semibold">Programada</th>
-                    <th className="px-3 py-2 font-semibold">Real</th>
+                    <th className="px-3 py-2 font-semibold">Entrada</th>
+                    <th className="px-3 py-2 font-semibold">Salida</th>
                     <th className="px-3 py-2 font-semibold">Estado</th>
                     <th className="px-3 py-2 font-semibold">Dif.</th>
                     <th className="px-3 py-2 text-right font-semibold">Acción</th>
@@ -390,6 +392,7 @@ function FilaResumen({ resumen: r, detalle, desde, hasta, expandido, onToggle, o
                       <td className="px-3 py-2 text-gray-700">{d.materia_nombre}</td>
                       <td className="px-3 py-2 tabular-nums text-gray-600">{formatHora(d.hora_inicio)}–{formatHora(d.hora_fin)}</td>
                       <td className="px-3 py-2 tabular-nums text-gray-600">{d.hora_registro ? formatHoraRegistro(d.hora_registro) : '—'}</td>
+                      <td className="px-3 py-2 tabular-nums text-gray-600">{d.hora_salida ? formatHoraRegistro(d.hora_salida) : '—'}</td>
                       <td className="px-3 py-2"><BadgeEstado d={d} /></td>
                       <td className="px-3 py-2 tabular-nums text-gray-500">{d.diferencia_min == null ? '—' : `${d.diferencia_min > 0 ? '+' : ''}${d.diferencia_min}m`}</td>
                       <td className="px-3 py-2 text-right">
