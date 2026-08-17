@@ -204,6 +204,8 @@ export interface MiAsistenciaItem {
   hora_inicio: string
   hora_fin: string
   hora_registro: string | null
+  /** timestamptz de la salida firmada, o null si no firmó salida */
+  hora_salida: string | null
   estado: EstadoReporte
   diferencia_min: number | null
   justificado: boolean

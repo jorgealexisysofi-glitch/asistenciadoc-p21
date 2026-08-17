@@ -8,7 +8,7 @@ export const TOLERANCIA_MIN = 10
  * `false`, el botón aparece en gris con la etiqueta «Desactivado» y no hace
  * nada. Para habilitarlo en el futuro, cambia a `true` y vuelve a desplegar.
  */
-export const FIRMAR_SALIDA_HABILITADO: boolean = false
+export const FIRMAR_SALIDA_HABILITADO: boolean = true
 
 /** Ventana para firmar salida: desde N min antes del fin y hasta N min después */
 export const SALIDA_ANTES_MIN = 30

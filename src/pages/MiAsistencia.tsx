@@ -147,6 +147,7 @@ export default function MiAsistencia() {
                         {DIAS[it.dia_semana]} {formatFecha(it.fecha)} ·{' '}
                         {formatHora(it.hora_inicio)}–{formatHora(it.hora_fin)}
                         {it.hora_registro ? ` · llegó ${formatHoraRegistro(it.hora_registro)}` : ''}
+                        {it.hora_salida ? ` · salió ${formatHoraRegistro(it.hora_salida)}` : ''}
                       </p>
                       {it.justificado && it.motivo ? (
                         <p className="mt-0.5 text-xs text-udeg-azul">Justificada: {it.motivo}</p>
