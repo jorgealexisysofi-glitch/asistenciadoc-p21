@@ -252,12 +252,21 @@ export default function AdminProfesores() {
         .update(datos)
         .eq('id', editando.id)
       if (error) {
-        setAviso({ tipo: 'error', mensaje: 'No se pudo guardar los cambios.' })
-        toast.error('No se pudieron guardar los cambios.')
-      } else {
-        setAviso({ tipo: 'ok', mensaje: 'Datos actualizados.' })
-        toast.success('Datos actualizados.')
+        // 23505 = violación de unicidad (número de empleado o correo ya en uso)
+        const mensaje =
+          error.code === '23505'
+            ? error.message.includes('correo')
+              ? 'Ese correo ya está asignado a otro profesor.'
+              : `El número de empleado «${datos.numero_empleado}» ya está asignado a otro profesor.`
+            : 'No se pudo guardar los cambios.'
+        setAviso({ tipo: 'error', mensaje })
+        toast.error(mensaje)
+        setEditando(null)
+        setWorking(false)
+        return
       }
+      setAviso({ tipo: 'ok', mensaje: 'Datos actualizados.' })
+      toast.success('Datos actualizados.')
     }
 
     setEditando(null)
