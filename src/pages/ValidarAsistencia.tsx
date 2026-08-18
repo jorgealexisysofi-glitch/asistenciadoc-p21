@@ -11,9 +11,17 @@ import {
   FIRMAR_SALIDA_HABILITADO,
   SALIDA_ANTES_MIN,
   TOLERANCIA_MIN,
+  calcularEstado,
   formatHora,
   formatHoraRegistro,
 } from '../lib/asistencia'
+import {
+  encolar,
+  sincronizarCola,
+  tienePendiente,
+  type ItemCola,
+} from '../lib/colaOffline'
+import { EVENTO_SYNC } from '../components/ConnectionWatcher'
 import type { ClaseSalida, HorarioActivo, MetodoDeteccion, RegistroClase } from '../types'
 
 type Resultado = { tipo: 'ok' | 'error' | 'info'; mensaje: string } | null
@@ -33,6 +41,35 @@ function esIOS(): boolean {
 // así que el aviso solo aplica en iOS SIN Web Bluetooth (Safari/Chrome iOS normales).
 const iosSinBluetooth = esIOS() && !('bluetooth' in navigator)
 
+// Caché de la clase activa: permite registrar sin conexión si la app la cargó
+// antes (mientras había red). Guarda la última clase activa vista hoy.
+const CLAVE_CACHE_HORARIO = 'asistenciadoc:horario-activo'
+
+function guardarCacheHorario(h: HorarioActivo) {
+  localStorage.setItem(CLAVE_CACHE_HORARIO, JSON.stringify({ fecha: hoyISO(), h }))
+}
+
+/** Lee la clase activa cacheada si es de hoy y la hora actual cae en su rango */
+function leerCacheHorario(): HorarioActivo | null {
+  try {
+    const raw = localStorage.getItem(CLAVE_CACHE_HORARIO)
+    if (!raw) return null
+    const { fecha, h } = JSON.parse(raw) as { fecha: string; h: HorarioActivo }
+    if (fecha !== hoyISO()) return null
+    const ahora = horaActual()
+    if (ahora >= h.hora_inicio && ahora < h.hora_fin) return h
+    return null
+  } catch {
+    return null
+  }
+}
+
+/** Genera un id de cliente para la cola (con respaldo si no hay crypto.randomUUID) */
+function nuevoId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
 export default function ValidarAsistencia() {
   const { profesor } = useAuth()
   const [reloj, setReloj] = useState(new Date())
@@ -43,6 +80,9 @@ export default function ValidarAsistencia() {
   const [working, setWorking] = useState(false)
   const [savingSalida, setSavingSalida] = useState(false)
   const [resultado, setResultado] = useState<Resultado>(null)
+  // Registros de esta clase pendientes de enviar (guardados sin conexión)
+  const [pendEntrada, setPendEntrada] = useState(false)
+  const [pendSalida, setPendSalida] = useState(false)
 
   const profesorId = profesor?.id
 
@@ -61,26 +101,47 @@ export default function ValidarAsistencia() {
       return
     }
     setLoading(true)
+    const fecha = hoyISO()
     const { data, error } = await supabase.rpc('get_horario_activo', {
       p_profesor_id: profesorId,
-      p_fecha: hoyISO(),
+      p_fecha: fecha,
       p_hora: horaActual(),
     })
+
+    // Sin conexión (o error de red): usar la clase cacheada si la app la cargó
+    // antes mientras había red, para poder registrar igual.
     if (error) {
-      setResultado({ tipo: 'error', mensaje: 'No se pudo consultar tu horario.' })
+      const cache = leerCacheHorario()
+      setHorario(cache)
+      setSalida(null)
+      if (cache) {
+        const pend = tienePendiente(cache.horario_id, fecha, 'entrada')
+        setPendEntrada(pend)
+        setPendSalida(tienePendiente(cache.horario_id, fecha, 'salida'))
+        // Si ya se registró offline, mostrarla como registrada (pendiente).
+        setRegistro(
+          pend ? { id: 'offline', estado: calcularEstado(cache.hora_inicio), hora_registro: '' } : null
+        )
+      } else {
+        setRegistro(null)
+      }
       setLoading(false)
       return
     }
+
     const h = ((data ?? []) as HorarioActivo[])[0] ?? null
     setHorario(h)
+    if (h) guardarCacheHorario(h)
 
     if (h) {
       const { data: reg } = await supabase.rpc('get_registro_clase', {
         p_profesor_id: profesorId,
         p_horario_id: h.horario_id,
-        p_fecha: hoyISO(),
+        p_fecha: fecha,
       })
       setRegistro(((reg ?? []) as RegistroClase[])[0] ?? null)
+      setPendEntrada(tienePendiente(h.horario_id, fecha, 'entrada'))
+      setPendSalida(tienePendiente(h.horario_id, fecha, 'salida'))
     }
 
     // Firmar salida (solo si la función está habilitada): clase cuya ventana de
@@ -88,7 +149,7 @@ export default function ValidarAsistencia() {
     if (FIRMAR_SALIDA_HABILITADO) {
       const { data: sal } = await supabase.rpc('get_clase_para_salida', {
         p_profesor_id: profesorId,
-        p_fecha: hoyISO(),
+        p_fecha: fecha,
         p_hora: horaActual(),
       })
       setSalida(((sal ?? []) as ClaseSalida[])[0] ?? null)
@@ -100,13 +161,68 @@ export default function ValidarAsistencia() {
     void cargar()
   }, [cargar])
 
+  // Al montar y al reconectar: sincronizar la cola y refrescar la vista.
+  useEffect(() => {
+    async function sincronizarYRefrescar() {
+      const n = await sincronizarCola()
+      if (n > 0) await cargar()
+    }
+    function alReconectar() {
+      void sincronizarYRefrescar()
+    }
+    if (navigator.onLine) void sincronizarYRefrescar()
+    window.addEventListener('online', alReconectar)
+    window.addEventListener(EVENTO_SYNC, alReconectar)
+    return () => {
+      window.removeEventListener('online', alReconectar)
+      window.removeEventListener(EVENTO_SYNC, alReconectar)
+    }
+  }, [cargar])
+
+  /** Guarda el registro en la cola local (sin red) y confirma de forma optimista */
+  function guardarOffline(metodoRegistro: MetodoDeteccion, beacon: string | null) {
+    if (!horario) return
+    const momento = new Date().toISOString()
+    const item: ItemCola = {
+      id: nuevoId(),
+      tipo: 'entrada',
+      momento,
+      profesor_id: profesorId!,
+      horario_id: horario.horario_id,
+      fecha: hoyISO(),
+      aula_id: horario.aula_id,
+      metodo: metodoRegistro,
+      beacon,
+      lat: coords?.latitud ?? null,
+      lon: coords?.longitud ?? null,
+      etiqueta: `${horario.materia_nombre} · entrada`,
+    }
+    encolar(item)
+    // Confirmación optimista: mostrar como registrada (pendiente de enviar).
+    setRegistro({ id: item.id, estado: calcularEstado(horario.hora_inicio), hora_registro: momento })
+    setPendEntrada(true)
+    setResultado({
+      tipo: 'info',
+      mensaje:
+        'Sin conexión: tu asistencia se guardó en el teléfono y se enviará sola cuando vuelvas a tener internet.',
+    })
+    toast('Guardado sin conexión. Se enviará al reconectar.', { icon: '📶' })
+  }
+
   async function registrar(metodoRegistro: MetodoDeteccion, beacon: string | null) {
     if (!profesorId || !horario) return
     setWorking(true)
 
+    // Sin conexión: guardar en la cola local con la hora real.
+    if (!navigator.onLine) {
+      guardarOffline(metodoRegistro, beacon)
+      setWorking(false)
+      return
+    }
+
     // RPC SECURITY DEFINER: registra usando profesor_id (sin sesión de Supabase).
-    // El estado (presente/tarde) lo calcula el servidor con la hora local.
-    const params = {
+    // El estado (presente/tarde) lo calcula el servidor. p_momento null = ahora.
+    const { error } = await supabase.rpc('registrar_asistencia', {
       p_profesor_id: profesorId,
       p_horario_id: horario.horario_id,
       p_aula_id: horario.aula_id,
@@ -114,31 +230,12 @@ export default function ValidarAsistencia() {
       p_beacon: beacon,
       p_lat: coords?.latitud ?? null,
       p_lon: coords?.longitud ?? null,
-    }
-
-    // Sin conexión: el service worker encola el POST (Background Sync) y lo
-    // reenvía al volver la red. Confirmamos de forma optimista.
-    if (!navigator.onLine) {
-      void supabase.rpc('registrar_asistencia', params)
-      setResultado({
-        tipo: 'info',
-        mensaje:
-          'Sin conexión: tu asistencia se guardó y se sincronizará automáticamente al reconectar.',
-      })
-      toast('Guardado sin conexión. Se sincronizará al reconectar.', { icon: '📶' })
-      setWorking(false)
-      return
-    }
-
-    const { error } = await supabase.rpc('registrar_asistencia', params)
+      p_momento: null,
+    })
     if (error) {
-      // Diagnóstico: objeto de error completo de Supabase/PostgREST
-      console.error('[registrar_asistencia] falló:', error, 'params:', params)
-      setResultado({
-        tipo: 'error',
-        mensaje: `No se pudo guardar el registro: ${error.message}`,
-      })
-      toast.error('No se pudo registrar la asistencia.')
+      // La red pudo caerse a mitad del envío: guardar offline en vez de fallar.
+      console.error('[registrar_asistencia] falló, se guarda offline:', error)
+      guardarOffline(metodoRegistro, beacon)
     } else {
       setResultado({
         tipo: 'ok',
@@ -158,16 +255,43 @@ export default function ValidarAsistencia() {
     await registrar(metodo ?? horario.beacon_tipo ?? 'manual', beaconDetectado)
   }
 
+  /** Guarda la salida en la cola local (sin red) */
+  function guardarSalidaOffline() {
+    if (!salida) return
+    const momento = new Date().toISOString()
+    encolar({
+      id: nuevoId(),
+      tipo: 'salida',
+      momento,
+      profesor_id: profesorId!,
+      horario_id: salida.horario_id,
+      fecha: hoyISO(),
+      etiqueta: `${salida.materia_nombre} · salida`,
+    })
+    setPendSalida(true)
+    setSalida({ ...salida, hora_salida: momento })
+    toast('Salida guardada sin conexión. Se enviará al reconectar.', { icon: '📶' })
+  }
+
   async function firmarSalida() {
     if (!profesorId || !salida) return
     setSavingSalida(true)
+
+    if (!navigator.onLine) {
+      guardarSalidaOffline()
+      setSavingSalida(false)
+      return
+    }
+
     const { error } = await supabase.rpc('registrar_salida', {
       p_profesor_id: profesorId,
       p_horario_id: salida.horario_id,
       p_fecha: hoyISO(),
+      p_momento: null,
     })
     if (error) {
-      toast.error('No se pudo firmar la salida.')
+      // Sin red a mitad del envío: guardar offline.
+      guardarSalidaOffline()
     } else {
       toast.success('¡Salida firmada!')
       await cargar()
@@ -326,11 +450,19 @@ export default function ValidarAsistencia() {
             )}
 
             {registro ? (
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-600">
-                  Tu asistencia de esta clase ya está registrada.
-                </p>
-                <EstadoBadge estado={registro.estado} />
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-gray-600">
+                    Tu asistencia de esta clase ya está registrada.
+                  </p>
+                  <EstadoBadge estado={registro.estado} />
+                </div>
+                {pendEntrada && (
+                  <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                    📶 Guardada sin conexión · pendiente de enviar. Se sincronizará sola al
+                    recuperar internet.
+                  </p>
+                )}
               </div>
             ) : (
               <>
@@ -390,9 +522,16 @@ export default function ValidarAsistencia() {
             </p>
           </div>
           {salida.hora_salida ? (
-            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
-              Salida firmada a las {formatHoraRegistro(salida.hora_salida)}. ✔
-            </p>
+            <>
+              <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
+                Salida firmada a las {formatHoraRegistro(salida.hora_salida)}. ✔
+              </p>
+              {pendSalida && (
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                  📶 Guardada sin conexión · pendiente de enviar.
+                </p>
+              )}
+            </>
           ) : (
             <button
               onClick={() => void firmarSalida()}

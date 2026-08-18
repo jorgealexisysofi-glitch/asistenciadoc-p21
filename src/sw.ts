@@ -15,7 +15,6 @@ import { matchPrecache } from 'workbox-precaching'
 import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies'
 import { CacheableResponsePlugin } from 'workbox-cacheable-response'
 import { ExpirationPlugin } from 'workbox-expiration'
-import { BackgroundSyncPlugin } from 'workbox-background-sync'
 
 declare const self: ServiceWorkerGlobalScope
 
@@ -66,20 +65,10 @@ registerRoute(
   })
 )
 
-// --- Background Sync: registros de asistencia creados sin conexión ----------
-// Encola los POST a registros_asistencia y los reenvía cuando vuelve la red.
-const colaAsistencia = new BackgroundSyncPlugin('asistencia-sync', {
-  maxRetentionTime: 24 * 60, // minutos (reintenta hasta 24 h)
-})
-
-registerRoute(
-  ({ url, request }) =>
-    request.method === 'POST' &&
-    (url.pathname.includes('/rest/v1/registros_asistencia') ||
-      url.pathname.includes('/rest/v1/rpc/registrar_asistencia')),
-  new NetworkFirst({ cacheName: 'asistencia-post', plugins: [colaAsistencia] }),
-  'POST'
-)
+// --- Registros de asistencia sin conexión -----------------------------------
+// El manejo offline lo hace la app (cola local en localStorage con la hora real
+// del registro, ver src/lib/colaOffline.ts). Así funciona también en iPhone y
+// el registro conserva la hora en que ocurrió, no la de sincronización.
 
 // --- Resto de la API de Supabase (lecturas): NetworkFirst -------------------
 registerRoute(
