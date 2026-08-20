@@ -17,7 +17,7 @@ export default function Logo({ size = 40, withText = false }: LogoProps) {
       />
       {withText && (
         <div className="leading-tight">
-          <p className="text-base font-bold text-udeg-azul">AsistenciaDoc</p>
+          <p className="text-base font-bold text-udeg-azul">Asistencia Prepa 21</p>
           <p className="text-xs font-medium text-gray-500">Preparatoria 21 · UdeG</p>
         </div>
       )}

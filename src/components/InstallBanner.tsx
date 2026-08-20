@@ -18,7 +18,7 @@ export default function InstallBanner() {
       <div className="mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-lg">
         <Logo size={40} />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-gray-900">Instala AsistenciaDoc</p>
+          <p className="text-sm font-bold text-gray-900">Instala Asistencia Prepa 21</p>
           <p className="truncate text-xs text-gray-500">
             Accede más rápido y úsala sin conexión.
           </p>

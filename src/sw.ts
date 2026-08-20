@@ -98,7 +98,7 @@ self.addEventListener('push', (event: PushEvent) => {
     if (event.data) datos = { body: event.data.text() }
   }
   event.waitUntil(
-    self.registration.showNotification(datos.title ?? 'AsistenciaDoc', {
+    self.registration.showNotification(datos.title ?? 'Asistencia Prepa 21', {
       body: datos.body ?? '',
       icon: '/logo-prepa21.svg',
       badge: '/favicon.svg',

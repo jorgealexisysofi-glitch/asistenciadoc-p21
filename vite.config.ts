@@ -17,8 +17,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2}'],
       },
       manifest: {
-        name: 'AsistenciaDoc P21',
-        short_name: 'AsistenciaDoc',
+        name: 'Asistencia Prepa 21',
+        short_name: 'Asistencia P21',
         description: 'Sistema de asistencia docente · Preparatoria 21 UdeG',
         lang: 'es-MX',
         start_url: '/',
