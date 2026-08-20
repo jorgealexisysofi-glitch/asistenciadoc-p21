@@ -5,7 +5,7 @@ import Logo from '../components/Logo'
 import Spinner from '../components/Spinner'
 
 export default function Login() {
-  const { isAuthenticated, isAdmin, requiereCambioNip, loading, signIn, signInAdmin } =
+  const { isAuthenticated, isAdmin, esMonitor, requiereCambioNip, loading, signIn, signInAdmin } =
     useAuth()
   const navigate = useNavigate()
 
@@ -22,7 +22,11 @@ export default function Login() {
 
   if (loading) return <Spinner label="Verificando sesión…" />
   if (isAuthenticated) {
-    const destino = requiereCambioNip ? '/cambiar-nip' : isAdmin ? '/admin' : '/home'
+    const destino = requiereCambioNip
+      ? '/cambiar-nip'
+      : isAdmin || esMonitor
+        ? '/admin'
+        : '/home'
     return <Navigate to={destino} replace />
   }
 

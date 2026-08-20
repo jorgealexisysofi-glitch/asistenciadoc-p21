@@ -74,7 +74,7 @@ export default function App() {
           <Route
             path="/admin"
             element={
-              <ProtectedRoute requireRol="admin">
+              <ProtectedRoute requireRol="monitor">
                 <Admin />
               </ProtectedRoute>
             }
@@ -90,7 +90,7 @@ export default function App() {
           <Route
             path="/admin/reportes"
             element={
-              <ProtectedRoute requireRol="admin">
+              <ProtectedRoute requireRol="monitor">
                 <AdminReportes />
               </ProtectedRoute>
             }
@@ -138,7 +138,7 @@ export default function App() {
           <Route
             path="/admin/tablero"
             element={
-              <ProtectedRoute requireRol="admin">
+              <ProtectedRoute requireRol="monitor">
                 <AdminTablero />
               </ProtectedRoute>
             }
@@ -146,7 +146,7 @@ export default function App() {
           <Route
             path="/admin/acta/:id"
             element={
-              <ProtectedRoute requireRol="admin">
+              <ProtectedRoute requireRol="monitor">
                 <AdminActa />
               </ProtectedRoute>
             }

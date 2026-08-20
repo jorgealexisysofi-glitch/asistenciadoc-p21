@@ -6,8 +6,9 @@ import Modal from '../components/Modal'
 import { SkeletonTable } from '../components/Skeleton'
 import { IconChevronDown, IconDownload } from '../components/icons'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../hooks/useAuth'
 import { formatFecha, formatHora, formatHoraRegistro } from '../lib/asistencia'
-import type { EstadoReporte, ReporteDetalle } from '../types'
+import type { EstadoReporte, ProfesorBasico, ReporteDetalle } from '../types'
 
 const DIAS = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
@@ -69,6 +70,7 @@ function BadgeEstado({ d }: { d: ReporteDetalle }) {
 }
 
 export default function AdminReportes() {
+  const { esMonitor } = useAuth()
   const [desde, setDesde] = useState(lunes())
   const [hasta, setHasta] = useState(hoy())
   const [busquedaProf, setBusquedaProf] = useState('')
@@ -82,11 +84,9 @@ export default function AdminReportes() {
 
   useEffect(() => {
     void (async () => {
-      const { data } = await supabase
-        .from('profesores')
-        .select('id, nombre, apellidos')
-        .order('apellidos')
-      setProfesores(data ?? [])
+      // RPC (no expone NIP): sirve tanto para admin como para monitor.
+      const { data } = await supabase.rpc('get_profesores_basico')
+      setProfesores((data ?? []) as ProfesorBasico[])
     })()
   }, [])
 
@@ -312,6 +312,7 @@ export default function AdminReportes() {
                     expandido={expandido === r.id}
                     onToggle={() => setExpandido((e) => (e === r.id ? null : r.id))}
                     onCorregir={(d) => setCorreccion(d)}
+                    soloLectura={esMonitor}
                   />
                 ))
               )}
@@ -340,9 +341,10 @@ interface FilaProps {
   expandido: boolean
   onToggle: () => void
   onCorregir: (d: ReporteDetalle) => void
+  soloLectura: boolean
 }
 
-function FilaResumen({ resumen: r, detalle, desde, hasta, expandido, onToggle, onCorregir }: FilaProps) {
+function FilaResumen({ resumen: r, detalle, desde, hasta, expandido, onToggle, onCorregir, soloLectura }: FilaProps) {
   const pctColor =
     r.pct == null
       ? 'text-gray-400'
@@ -399,7 +401,7 @@ function FilaResumen({ resumen: r, detalle, desde, hasta, expandido, onToggle, o
                     <th className="px-3 py-2 font-semibold">Salida</th>
                     <th className="px-3 py-2 font-semibold">Estado</th>
                     <th className="px-3 py-2 font-semibold">Dif.</th>
-                    <th className="px-3 py-2 text-right font-semibold">Acción</th>
+                    {!soloLectura && <th className="px-3 py-2 text-right font-semibold">Acción</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -413,11 +415,13 @@ function FilaResumen({ resumen: r, detalle, desde, hasta, expandido, onToggle, o
                       <td className="px-3 py-2 tabular-nums text-gray-600">{d.hora_salida ? formatHoraRegistro(d.hora_salida) : '—'}</td>
                       <td className="px-3 py-2"><BadgeEstado d={d} /></td>
                       <td className="px-3 py-2 tabular-nums text-gray-500">{d.diferencia_min == null ? '—' : `${d.diferencia_min > 0 ? '+' : ''}${d.diferencia_min}m`}</td>
-                      <td className="px-3 py-2 text-right">
-                        <button onClick={() => onCorregir(d)} className="text-xs font-semibold text-udeg-azul hover:underline">
-                          Corregir
-                        </button>
-                      </td>
+                      {!soloLectura && (
+                        <td className="px-3 py-2 text-right">
+                          <button onClick={() => onCorregir(d)} className="text-xs font-semibold text-udeg-azul hover:underline">
+                            Corregir
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

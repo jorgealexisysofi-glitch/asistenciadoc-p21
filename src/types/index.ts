@@ -232,6 +232,37 @@ export interface BitacoraItem {
   materia_nombre: string | null
 }
 
+/** Profesor con datos NO sensibles (RPC `get_profesores_basico`) */
+export interface ProfesorBasico {
+  id: string
+  nombre: string
+  apellidos: string
+  numero_empleado: string | null
+  activo: boolean
+}
+
+/** Registro de asistencia de un día para el dashboard (RPC `get_registros_dia`) */
+export interface RegistroDia {
+  id: string
+  profesor_id: string
+  profesor_nombre: string
+  profesor_apellidos: string
+  materia_nombre: string | null
+  aula_nombre: string | null
+  hora_registro: string | null
+  hora_salida: string | null
+  estado: EstadoAsistencia
+  metodo_deteccion: MetodoDeteccion
+}
+
+/** KPIs del dashboard (RPC `get_dashboard_kpis`) */
+export interface DashboardKpis {
+  activos: number
+  registradas_hoy: number
+  pct_semana: number | null
+  en_clase: number
+}
+
 /** Fila del tablero "próximas clases" (RPC `get_proximas_clases`) */
 export interface ProximaClaseTablero {
   horario_id: string

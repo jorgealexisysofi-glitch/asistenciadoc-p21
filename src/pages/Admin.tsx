@@ -3,47 +3,20 @@ import AdminLayout from '../components/AdminLayout'
 import EstadoBadge from '../components/EstadoBadge'
 import { SkeletonKpis, SkeletonTable } from '../components/Skeleton'
 import { IconDownload } from '../components/icons'
-import { horaActual, hoyISO, supabase } from '../lib/supabase'
-import { diaSemanaISO, formatFecha, formatHoraRegistro } from '../lib/asistencia'
-import type { EstadoAsistencia, Profesor, RegistroAsistencia } from '../types'
+import { hoyISO, supabase } from '../lib/supabase'
+import { formatFecha, formatHoraRegistro } from '../lib/asistencia'
+import type { DashboardKpis, ProfesorBasico, RegistroDia } from '../types'
 
 const REFRESCO_MS = 60_000
 
-type ProfesorMin = Pick<Profesor, 'id' | 'nombre' | 'apellidos' | 'activo'>
-
-interface HorarioMin {
-  id: string
-  profesor_id: string
-  dia_semana: number
-  hora_inicio: string
-  hora_fin: string
-}
-
-interface RegistroSemana {
-  id: string
-  estado: EstadoAsistencia
-  fecha: string
-}
-
-/** Lunes de la semana actual en YYYY-MM-DD */
-function lunesISO(): string {
-  const d = new Date()
-  const dow = d.getDay() === 0 ? 7 : d.getDay()
-  d.setDate(d.getDate() - (dow - 1))
-  const mes = String(d.getMonth() + 1).padStart(2, '0')
-  const dia = String(d.getDate()).padStart(2, '0')
-  return `${d.getFullYear()}-${mes}-${dia}`
-}
-
-function nombreCompleto(r: RegistroAsistencia): string {
-  return r.profesor ? `${r.profesor.nombre} ${r.profesor.apellidos}` : '—'
+function nombreCompleto(r: RegistroDia): string {
+  return `${r.profesor_nombre} ${r.profesor_apellidos}`
 }
 
 export default function Admin() {
-  const [profesores, setProfesores] = useState<ProfesorMin[]>([])
-  const [registros, setRegistros] = useState<RegistroAsistencia[]>([])
-  const [horarios, setHorarios] = useState<HorarioMin[]>([])
-  const [semana, setSemana] = useState<RegistroSemana[]>([])
+  const [profesores, setProfesores] = useState<ProfesorBasico[]>([])
+  const [registros, setRegistros] = useState<RegistroDia[]>([])
+  const [kpis, setKpis] = useState<DashboardKpis | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -54,36 +27,18 @@ export default function Admin() {
 
   const cargar = useCallback(async () => {
     setError(null)
-    const [resProf, resReg, resHor, resSemana] = await Promise.all([
-      supabase
-        .from('profesores')
-        .select('id, nombre, apellidos, activo')
-        .order('apellidos', { ascending: true }),
-      supabase
-        .from('registros_asistencia')
-        .select(
-          '*, profesor:profesores(nombre, apellidos, numero_empleado), aula:aulas(nombre, edificio), horario:horarios(hora_inicio, hora_fin, materia:materias(nombre))'
-        )
-        .eq('fecha', fFecha)
-        .order('hora_registro', { ascending: false }),
-      supabase
-        .from('horarios')
-        .select('id, profesor_id, dia_semana, hora_inicio, hora_fin')
-        .eq('activo', true),
-      supabase
-        .from('registros_asistencia')
-        .select('id, estado, fecha')
-        .gte('fecha', lunesISO())
-        .lte('fecha', hoyISO()),
+    const [resKpis, resReg, resProf] = await Promise.all([
+      supabase.rpc('get_dashboard_kpis'),
+      supabase.rpc('get_registros_dia', { p_fecha: fFecha }),
+      supabase.rpc('get_profesores_basico'),
     ])
 
-    if (resProf.error || resReg.error || resHor.error || resSemana.error) {
+    if (resKpis.error || resReg.error || resProf.error) {
       setError('No se pudieron cargar los datos del panel. Intenta de nuevo.')
     } else {
-      setProfesores((resProf.data ?? []) as ProfesorMin[])
-      setRegistros((resReg.data ?? []) as RegistroAsistencia[])
-      setHorarios((resHor.data ?? []) as HorarioMin[])
-      setSemana((resSemana.data ?? []) as RegistroSemana[])
+      setKpis(((resKpis.data ?? []) as DashboardKpis[])[0] ?? null)
+      setRegistros((resReg.data ?? []) as RegistroDia[])
+      setProfesores((resProf.data ?? []) as ProfesorBasico[])
     }
     setLoading(false)
   }, [fFecha])
@@ -100,35 +55,6 @@ export default function Admin() {
     }, REFRESCO_MS)
     return () => clearInterval(t)
   }, [cargar])
-
-  // ---------- KPIs ----------
-  const kpis = useMemo(() => {
-    const activos = profesores.filter((p) => p.activo).length
-    const hoy = hoyISO()
-    const registradasHoy = semana.filter((r) => r.fecha === hoy).length
-
-    // % de la semana: clases ya iniciadas (lunes→ahora) vs registros presente/tarde
-    const dowHoy = diaSemanaISO()
-    const ahora = horaActual()
-    const esperadas = horarios.filter(
-      (h) =>
-        h.dia_semana < dowHoy || (h.dia_semana === dowHoy && h.hora_inicio <= ahora)
-    ).length
-    const asistidas = semana.filter((r) => r.estado !== 'ausente').length
-    const pctSemana =
-      esperadas > 0 ? Math.min(100, Math.round((asistidas / esperadas) * 100)) : null
-
-    // Profesores con clase en este momento
-    const enClase = new Set(
-      horarios
-        .filter(
-          (h) => h.dia_semana === dowHoy && h.hora_inicio <= ahora && ahora < h.hora_fin
-        )
-        .map((h) => h.profesor_id)
-    ).size
-
-    return { activos, registradasHoy, pctSemana, enClase }
-  }, [profesores, horarios, semana])
 
   // ---------- Filtros sobre la tabla ----------
   const filtrados = useMemo(
@@ -153,9 +79,9 @@ export default function Admin() {
     ]
     const filas = filtrados.map((r) => [
       nombreCompleto(r),
-      r.horario?.materia?.nombre ?? '',
-      r.aula?.nombre ?? '',
-      formatFecha(r.fecha),
+      r.materia_nombre ?? '',
+      r.aula_nombre ?? '',
+      formatFecha(fFecha),
       formatHoraRegistro(r.hora_registro),
       r.metodo_deteccion,
       r.estado,
@@ -174,14 +100,14 @@ export default function Admin() {
   }
 
   const tarjetas = [
-    { valor: kpis.activos, etiqueta: 'Profesores activos', color: 'text-udeg-azul' },
-    { valor: kpis.registradasHoy, etiqueta: 'Asistencias hoy', color: 'text-udeg-naranja' },
+    { valor: kpis?.activos ?? '—', etiqueta: 'Profesores activos', color: 'text-udeg-azul' },
+    { valor: kpis?.registradas_hoy ?? '—', etiqueta: 'Asistencias hoy', color: 'text-udeg-naranja' },
     {
-      valor: kpis.pctSemana == null ? '—' : `${kpis.pctSemana}%`,
+      valor: kpis?.pct_semana == null ? '—' : `${kpis.pct_semana}%`,
       etiqueta: 'Asistencia esta semana',
       color: 'text-emerald-600',
     },
-    { valor: kpis.enClase, etiqueta: 'Con clase ahora', color: 'text-violet-600' },
+    { valor: kpis?.en_clase ?? '—', etiqueta: 'Con clase ahora', color: 'text-violet-600' },
   ]
 
   return (
@@ -302,10 +228,8 @@ export default function Admin() {
                       <td className="px-4 py-3 font-semibold text-gray-800">
                         {nombreCompleto(r)}
                       </td>
-                      <td className="px-4 py-3 text-gray-600">
-                        {r.horario?.materia?.nombre ?? '—'}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600">{r.aula?.nombre ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-600">{r.materia_nombre ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-600">{r.aula_nombre ?? '—'}</td>
                       <td className="px-4 py-3 tabular-nums text-gray-600">
                         {formatHoraRegistro(r.hora_registro)}
                       </td>

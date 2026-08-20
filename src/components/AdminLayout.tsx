@@ -20,15 +20,15 @@ export interface Crumb {
 }
 
 const NAV = [
-  { to: '/admin', label: 'Dashboard', icon: IconHome, end: true },
-  { to: '/admin/tablero', label: 'Clases ahora', icon: IconCalendar, end: false },
-  { to: '/admin/profesores', label: 'Profesores', icon: IconUsers, end: false },
-  { to: '/admin/reportes', label: 'Reportes', icon: IconChart, end: false },
-  { to: '/admin/dias-no-laborables', label: 'Días no laborables', icon: IconCalendar, end: false },
-  { to: '/admin/bitacora', label: 'Bitácora', icon: IconChart, end: false },
-  { to: '/admin/aulas', label: 'Aulas / Beacons', icon: IconBuilding, end: false },
-  { to: '/admin/horarios', label: 'Importar horarios', icon: IconUpload, end: false },
-  { to: '/admin/asignar-aulas', label: 'Asignar aulas', icon: IconBuilding, end: false },
+  { to: '/admin', label: 'Dashboard', icon: IconHome, end: true, monitor: true },
+  { to: '/admin/tablero', label: 'Clases ahora', icon: IconCalendar, end: false, monitor: true },
+  { to: '/admin/profesores', label: 'Profesores', icon: IconUsers, end: false, monitor: false },
+  { to: '/admin/reportes', label: 'Reportes', icon: IconChart, end: false, monitor: true },
+  { to: '/admin/dias-no-laborables', label: 'Días no laborables', icon: IconCalendar, end: false, monitor: false },
+  { to: '/admin/bitacora', label: 'Bitácora', icon: IconChart, end: false, monitor: false },
+  { to: '/admin/aulas', label: 'Aulas / Beacons', icon: IconBuilding, end: false, monitor: false },
+  { to: '/admin/horarios', label: 'Importar horarios', icon: IconUpload, end: false, monitor: false },
+  { to: '/admin/asignar-aulas', label: 'Asignar aulas', icon: IconBuilding, end: false, monitor: false },
 ]
 
 interface AdminLayoutProps {
@@ -38,9 +38,12 @@ interface AdminLayoutProps {
 }
 
 export default function AdminLayout({ breadcrumb, children }: AdminLayoutProps) {
-  const { profesor, user, esSesionSupabase, signOut } = useAuth()
+  const { profesor, user, esSesionSupabase, esMonitor, signOut } = useAuth()
   const navigate = useNavigate()
   const [abierto, setAbierto] = useState(false)
+
+  // El monitor (solo lectura) ve un menú reducido y sin acciones de edición.
+  const navVisible = esMonitor ? NAV.filter((n) => n.monitor) : NAV
 
   // Diagnóstico temporal: revisar en la consola del navegador si hay sesión de
   // Supabase Auth. Si esSesionSupabase es false, entraste por código + NIP (no
@@ -69,8 +72,15 @@ export default function AdminLayout({ breadcrumb, children }: AdminLayoutProps) 
         </button>
       </div>
 
+      {esMonitor && (
+        <div className="mx-3 mt-3 rounded-xl bg-udeg-azul-light px-3 py-2 text-center">
+          <p className="text-xs font-bold text-udeg-azul">👁️ Solo lectura</p>
+          <p className="text-[11px] text-udeg-azul/70">Modo monitoreo · sin edición</p>
+        </div>
+      )}
+
       <nav className="flex-1 space-y-1 px-3 py-4" aria-label="Navegación admin">
-        {NAV.map(({ to, label, icon: Icon, end }) => (
+        {navVisible.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}
@@ -89,7 +99,7 @@ export default function AdminLayout({ breadcrumb, children }: AdminLayoutProps) 
           </NavLink>
         ))}
         {/* Solo admins con sesión de Supabase Auth pueden cambiar su contraseña */}
-        {esSesionSupabase && (
+        {esSesionSupabase && !esMonitor && (
           <NavLink
             to="/admin/cambiar-password"
             onClick={() => setAbierto(false)}
@@ -111,20 +121,24 @@ export default function AdminLayout({ breadcrumb, children }: AdminLayoutProps) 
         <p className="truncate px-3 text-xs font-semibold text-gray-400" title={nombreAdmin}>
           {nombreAdmin}
         </p>
-        <Link
-          to="/home"
-          className="mt-2 block rounded-xl px-3 py-2 text-sm font-semibold text-udeg-azul hover:bg-udeg-azul-light"
-        >
-          Vista profesor
-        </Link>
-        <a
-          href="/checador"
-          target="_blank"
-          rel="noopener"
-          className="mt-1 block rounded-xl px-3 py-2 text-sm font-semibold text-udeg-azul hover:bg-udeg-azul-light"
-        >
-          Punto de control ↗
-        </a>
+        {!esMonitor && (
+          <>
+            <Link
+              to="/home"
+              className="mt-2 block rounded-xl px-3 py-2 text-sm font-semibold text-udeg-azul hover:bg-udeg-azul-light"
+            >
+              Vista profesor
+            </Link>
+            <a
+              href="/checador"
+              target="_blank"
+              rel="noopener"
+              className="mt-1 block rounded-xl px-3 py-2 text-sm font-semibold text-udeg-azul hover:bg-udeg-azul-light"
+            >
+              Punto de control ↗
+            </a>
+          </>
+        )}
         <button
           onClick={handleSignOut}
           className="mt-1 w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-gray-600 hover:bg-gray-100 hover:text-udeg-naranja"

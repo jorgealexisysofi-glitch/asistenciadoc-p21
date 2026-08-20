@@ -28,6 +28,8 @@ interface AuthContextValue {
   /** Hay alguna sesión activa (NIP o Supabase) */
   isAuthenticated: boolean
   isAdmin: boolean
+  /** Usuario de solo lectura (rol 'monitor'): ve el panel pero no edita */
+  esMonitor: boolean
   /** El profesor entró por NIP y debe cambiarlo antes de continuar */
   requiereCambioNip: boolean
   loading: boolean
@@ -75,6 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (user.app_metadata?.rol === 'admin' ||
       adminProfesor?.admin === true ||
       esCorreoAdmin(user.email))
+
+  // Monitor: cuenta de Supabase Auth con app_metadata.rol = 'monitor' (solo lectura)
+  const esMonitor = user != null && user.app_metadata?.rol === 'monitor'
 
   const isAdmin = local?.admin === true || supabaseEsAdmin
   const esSesionSupabase = session != null
@@ -192,6 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         esSesionSupabase,
         isAuthenticated,
         isAdmin,
+        esMonitor,
         requiereCambioNip,
         loading,
         signIn,

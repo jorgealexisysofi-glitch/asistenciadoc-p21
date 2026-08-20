@@ -5,7 +5,7 @@ import Logo from '../components/Logo'
 import { IconDownload } from '../components/icons'
 import { supabase } from '../lib/supabase'
 import { formatFecha, formatHora, formatHoraRegistro } from '../lib/asistencia'
-import type { ReporteDetalle } from '../types'
+import type { ProfesorBasico, ReporteDetalle } from '../types'
 
 const DIAS = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 
@@ -34,7 +34,7 @@ export default function AdminActa() {
     setLoading(true)
     setError(null)
     const [resProf, resRep] = await Promise.all([
-      supabase.from('profesores').select('nombre, apellidos, numero_empleado').eq('id', id).maybeSingle(),
+      supabase.rpc('get_profesores_basico'),
       supabase.rpc('generar_reporte_asistencia', {
         p_fecha_desde: desde,
         p_fecha_hasta: hasta,
@@ -44,7 +44,7 @@ export default function AdminActa() {
     if (resRep.error) {
       setError('No se pudo generar el acta. ¿Iniciaste sesión como administrador?')
     } else {
-      const p = resProf.data
+      const p = ((resProf.data ?? []) as ProfesorBasico[]).find((x) => x.id === id) ?? null
       setNombre(
         p ? `${p.nombre} ${p.apellidos}${p.numero_empleado ? ` (${p.numero_empleado})` : ''}` : ''
       )
