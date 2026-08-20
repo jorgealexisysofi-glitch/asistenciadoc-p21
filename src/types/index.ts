@@ -148,6 +148,16 @@ export interface Grupo {
   clases: number
 }
 
+/** Ciclo archivado (respaldo) — RPC `get_archivos` */
+export interface ArchivoCiclo {
+  id: string
+  etiqueta: string | null
+  creado_en: string
+  n_horarios: number
+  n_registros: number
+  creado_por: string | null
+}
+
 /** Fila devuelta por la RPC `get_historial_profesor` */
 export interface HistorialItem {
   id: string

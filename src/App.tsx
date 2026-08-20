@@ -25,6 +25,7 @@ import AdminDiasNoLaborables from './pages/AdminDiasNoLaborables'
 import AdminBitacora from './pages/AdminBitacora'
 import AdminGrupos from './pages/AdminGrupos'
 import AdminHorarioGrupo from './pages/AdminHorarioGrupo'
+import AdminCiclos from './pages/AdminCiclos'
 
 export default function App() {
   return (
@@ -150,6 +151,14 @@ export default function App() {
             element={
               <ProtectedRoute requireRol="admin">
                 <AdminHorarioGrupo />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/ciclos"
+            element={
+              <ProtectedRoute requireRol="admin">
+                <AdminCiclos />
               </ProtectedRoute>
             }
           />

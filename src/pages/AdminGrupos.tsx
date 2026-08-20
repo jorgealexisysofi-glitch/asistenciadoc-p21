@@ -54,6 +54,9 @@ export default function AdminGrupos() {
   // Borrar (desagrupar) un grupo
   const [grupoABorrar, setGrupoABorrar] = useState<Grupo | null>(null)
   const [borrando, setBorrando] = useState(false)
+  // Borrar TODOS los grupos
+  const [borrarTodosOpen, setBorrarTodosOpen] = useState(false)
+  const [borrandoTodos, setBorrandoTodos] = useState(false)
 
   // Importación (asigna grupo sobre horarios existentes, sin borrar)
   const [nombreArchivo, setNombreArchivo] = useState('')
@@ -222,6 +225,19 @@ export default function AdminGrupos() {
     await cargar()
   }
 
+  async function confirmarBorrarTodos() {
+    setBorrandoTodos(true)
+    const { error: err } = await supabase.rpc('borrar_todos_grupos')
+    setBorrandoTodos(false)
+    if (err) {
+      toast.error('No se pudieron borrar los grupos.')
+      return
+    }
+    toast.success('Se borraron todos los grupos.')
+    setBorrarTodosOpen(false)
+    await cargar()
+  }
+
   const filtrados = grupos.filter((g) =>
     g.grupo.toLowerCase().includes(busqueda.trim().toLowerCase())
   )
@@ -294,14 +310,20 @@ export default function AdminGrupos() {
         </p>
       ) : (
         <>
-          <div className="mt-6 max-w-xs">
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
             <input
               type="text"
-              className="input !py-2"
+              className="input !py-2 max-w-xs"
               placeholder="Buscar grupo…"
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
             />
+            <button
+              onClick={() => setBorrarTodosOpen(true)}
+              className="rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
+            >
+              Borrar todos los grupos
+            </button>
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -337,6 +359,37 @@ export default function AdminGrupos() {
             )}
           </div>
         </>
+      )}
+
+      {borrarTodosOpen && (
+        <Modal open title="Borrar todos los grupos" onClose={() => setBorrarTodosOpen(false)}>
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-gray-600">
+              Se quitará la etiqueta de grupo de <span className="font-semibold">todas</span> las
+              clases. Los horarios y las asistencias{' '}
+              <span className="font-semibold">no se borran</span>; solo dejan de estar agrupados.
+              Podrás volver a asignarlos subiendo el Excel.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setBorrarTodosOpen(false)}
+                disabled={borrandoTodos}
+                className="btn-ghost flex-1"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmarBorrarTodos()}
+                disabled={borrandoTodos}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+              >
+                {borrandoTodos ? 'Borrando…' : 'Borrar todos'}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {grupoABorrar && (

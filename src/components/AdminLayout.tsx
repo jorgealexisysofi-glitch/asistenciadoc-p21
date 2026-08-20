@@ -6,6 +6,7 @@ import {
   IconBuilding,
   IconCalendar,
   IconChart,
+  IconDownload,
   IconHome,
   IconKey,
   IconMenu,
@@ -30,6 +31,7 @@ const NAV = [
   { to: '/admin/aulas', label: 'Aulas / Beacons', icon: IconBuilding, end: false, monitor: false },
   { to: '/admin/horarios', label: 'Importar horarios', icon: IconUpload, end: false, monitor: false },
   { to: '/admin/asignar-aulas', label: 'Asignar aulas', icon: IconBuilding, end: false, monitor: false },
+  { to: '/admin/ciclos', label: 'Respaldos', icon: IconDownload, end: false, monitor: false },
 ]
 
 interface AdminLayoutProps {
