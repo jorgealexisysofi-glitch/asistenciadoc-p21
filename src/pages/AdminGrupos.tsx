@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState, type ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import AdminLayout from '../components/AdminLayout'
+import Modal from '../components/Modal'
 import { SkeletonTable } from '../components/Skeleton'
-import { IconChart, IconUpload } from '../components/icons'
+import { IconChart, IconTrash, IconUpload } from '../components/icons'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { derivarGrupo, normalizar, parseRangoHorario } from '../lib/asistencia'
@@ -49,6 +50,10 @@ export default function AdminGrupos() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState('')
+
+  // Borrar (desagrupar) un grupo
+  const [grupoABorrar, setGrupoABorrar] = useState<Grupo | null>(null)
+  const [borrando, setBorrando] = useState(false)
 
   // Importación (asigna grupo sobre horarios existentes, sin borrar)
   const [nombreArchivo, setNombreArchivo] = useState('')
@@ -203,6 +208,20 @@ export default function AdminGrupos() {
     }
   }
 
+  async function confirmarBorrado() {
+    if (!grupoABorrar) return
+    setBorrando(true)
+    const { error: err } = await supabase.rpc('borrar_grupo', { p_grupo: grupoABorrar.grupo })
+    setBorrando(false)
+    if (err) {
+      toast.error('No se pudo borrar el grupo.')
+      return
+    }
+    toast.success(`Grupo «${grupoABorrar.grupo}» borrado.`)
+    setGrupoABorrar(null)
+    await cargar()
+  }
+
   const filtrados = grupos.filter((g) =>
     g.grupo.toLowerCase().includes(busqueda.trim().toLowerCase())
   )
@@ -287,19 +306,29 @@ export default function AdminGrupos() {
 
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {filtrados.map((g) => (
-              <Link
-                key={g.grupo}
-                to={`/admin/grupo/${encodeURIComponent(g.grupo)}`}
-                className="card flex flex-col items-center gap-1 text-center transition-colors hover:border-udeg-naranja"
-              >
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-udeg-azul-light">
-                  <IconChart className="h-5 w-5 text-udeg-azul" />
-                </span>
-                <p className="mt-1 text-lg font-bold text-gray-900">{g.grupo}</p>
-                <p className="text-xs text-gray-500">
-                  {g.clases} {g.clases === 1 ? 'clase' : 'clases'}
-                </p>
-              </Link>
+              <div key={g.grupo} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setGrupoABorrar(g)}
+                  aria-label={`Borrar grupo ${g.grupo}`}
+                  title="Borrar grupo"
+                  className="absolute right-1.5 top-1.5 z-10 rounded-lg p-1.5 text-gray-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                >
+                  <IconTrash className="h-4 w-4" />
+                </button>
+                <Link
+                  to={`/admin/grupo/${encodeURIComponent(g.grupo)}`}
+                  className="card flex flex-col items-center gap-1 text-center transition-colors hover:border-udeg-naranja"
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-udeg-azul-light">
+                    <IconChart className="h-5 w-5 text-udeg-azul" />
+                  </span>
+                  <p className="mt-1 text-lg font-bold text-gray-900">{g.grupo}</p>
+                  <p className="text-xs text-gray-500">
+                    {g.clases} {g.clases === 1 ? 'clase' : 'clases'}
+                  </p>
+                </Link>
+              </div>
             ))}
             {filtrados.length === 0 && (
               <p className="col-span-full py-6 text-center text-sm text-gray-500">
@@ -308,6 +337,38 @@ export default function AdminGrupos() {
             )}
           </div>
         </>
+      )}
+
+      {grupoABorrar && (
+        <Modal open title="Borrar grupo" onClose={() => setGrupoABorrar(null)}>
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-gray-600">
+              Se quitará la etiqueta del grupo{' '}
+              <span className="font-semibold text-gray-800">«{grupoABorrar.grupo}»</span> de sus{' '}
+              {grupoABorrar.clases} {grupoABorrar.clases === 1 ? 'clase' : 'clases'}. Los horarios y
+              las asistencias <span className="font-semibold">no se borran</span>; solo dejan de
+              estar agrupados. Podrás volver a asignarlo subiendo el Excel.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setGrupoABorrar(null)}
+                disabled={borrando}
+                className="btn-ghost flex-1"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmarBorrado()}
+                disabled={borrando}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+              >
+                {borrando ? 'Borrando…' : 'Borrar grupo'}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </AdminLayout>
   )
