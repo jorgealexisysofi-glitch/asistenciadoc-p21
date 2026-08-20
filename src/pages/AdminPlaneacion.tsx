@@ -3,6 +3,7 @@ import toast from 'react-hot-toast'
 import AdminLayout from '../components/AdminLayout'
 import Modal from '../components/Modal'
 import { IconDownload, IconPlus, IconTrash, IconUpload } from '../components/icons'
+import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
 import { derivarGrupo, formatHora, normalizar, parseRangoHorario } from '../lib/asistencia'
 import { aMinutos, calcularChoques, idsEnChoque, valoresDistintos } from '../lib/planeacion'
@@ -21,6 +22,14 @@ type Fila = (string | number)[]
 function nuevoId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+/** Nombre completo → nombre(s) + apellidos (últimas 2 palabras = apellidos) */
+function partirNombre(completo: string): { nombre: string; apellidos: string } {
+  const p = completo.trim().split(/\s+/).filter(Boolean)
+  if (p.length <= 1) return { nombre: completo.trim(), apellidos: '' }
+  if (p.length === 2) return { nombre: p[0], apellidos: p[1] }
+  return { nombre: p.slice(0, -2).join(' '), apellidos: p.slice(-2).join(' ') }
 }
 
 function leerLS(): ClasePlan[] {
@@ -50,7 +59,17 @@ const claseVacia = (parcial?: Partial<ClasePlan>): ClasePlan => ({
   ...parcial,
 })
 
+interface ResultadoGuardar {
+  insertados: number
+  omitidos: number
+  profesoresCreados: number
+  materiasCreadas: number
+  aulasCreadas: number
+  errores: number
+}
+
 export default function AdminPlaneacion() {
+  const { esSesionSupabase } = useAuth()
   const [clases, setClases] = useState<ClasePlan[]>(() => leerLS())
   const [vista, setVista] = useState<Vista>('profesor')
   const [seleccion, setSeleccion] = useState('')
@@ -58,6 +77,11 @@ export default function AdminPlaneacion() {
   const [verChoques, setVerChoques] = useState(true)
   const [importandoDb, setImportandoDb] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  // Guardar en el sistema
+  const [guardarOpen, setGuardarOpen] = useState(false)
+  const [semestreGuardar, setSemestreGuardar] = useState('2026-B')
+  const [guardando, setGuardando] = useState(false)
+  const [resultadoGuardar, setResultadoGuardar] = useState<ResultadoGuardar | null>(null)
 
   // Persistir en el navegador
   useEffect(() => {
@@ -245,6 +269,128 @@ export default function AdminPlaneacion() {
     XLSX.writeFile(wb, 'Planeacion_horarios.xlsx')
   }
 
+  // ---------- Guardar el plan en el sistema (aditivo y seguro) ----------
+  async function guardarEnSistema() {
+    if (!esSesionSupabase) {
+      toast.error('Entra con «Acceso administrativo» (correo y contraseña) para guardar.')
+      return
+    }
+    if (clases.length === 0) return
+    setGuardando(true)
+    setResultadoGuardar(null)
+    try {
+      const sem = semestreGuardar.trim() || '2026-B'
+      const [rProf, rMat, rAul, rHor] = await Promise.all([
+        supabase.from('profesores').select('id, nombre, apellidos, numero_empleado'),
+        supabase.from('materias').select('id, nombre, clave'),
+        supabase.from('aulas').select('id, nombre, beacon_id'),
+        supabase
+          .from('horarios')
+          .select('profesor_id, materia_id, dia_semana, hora_inicio, hora_fin, semestre')
+          .eq('activo', true),
+      ])
+      if (rProf.error || rMat.error || rAul.error || rHor.error) {
+        toast.error('No se pudieron cargar los catálogos. ¿Entraste como administrador?')
+        return
+      }
+      const profCod = new Map<string, string>()
+      const profNom = new Map<string, string>()
+      for (const p of rProf.data ?? []) {
+        if (p.numero_empleado) profCod.set(normalizar(p.numero_empleado), p.id)
+        profNom.set(normalizar(`${p.nombre} ${p.apellidos}`), p.id)
+        profNom.set(normalizar(`${p.apellidos} ${p.nombre}`), p.id)
+      }
+      const matClave = new Map<string, string>()
+      const matNom = new Map<string, string>()
+      for (const m of rMat.data ?? []) {
+        if (m.clave) matClave.set(normalizar(m.clave), m.id)
+        matNom.set(normalizar(m.nombre), m.id)
+      }
+      const aulaNom = new Map<string, string>()
+      for (const a of rAul.data ?? []) {
+        aulaNom.set(normalizar(a.nombre), a.id)
+        if (a.beacon_id) aulaNom.set(normalizar(a.beacon_id), a.id)
+      }
+      const existentes = new Set<string>()
+      for (const h of rHor.data ?? []) {
+        existentes.add(`${h.profesor_id}|${h.materia_id}|${h.dia_semana}|${h.hora_inicio}|${h.hora_fin}|${h.semestre}`)
+      }
+
+      let profC = 0, matC = 0, aulC = 0, omit = 0, errs = 0
+      const aInsertar: Record<string, unknown>[] = []
+      for (const c of clases) {
+        // Profesor (por código o nombre; crear si falta)
+        let pid =
+          (c.codigo ? profCod.get(normalizar(c.codigo)) : undefined) ??
+          (c.profesor ? profNom.get(normalizar(c.profesor)) : undefined) ??
+          null
+        if (!pid) {
+          if (!c.profesor.trim()) { errs++; continue }
+          const { nombre, apellidos } = partirNombre(c.profesor)
+          const { data, error } = await supabase
+            .from('profesores')
+            .insert({ nombre, apellidos, numero_empleado: c.codigo.trim() || null })
+            .select('id').single()
+          if (error || !data) { errs++; continue }
+          pid = data.id as string
+          profC++
+          if (c.codigo) profCod.set(normalizar(c.codigo), pid)
+          profNom.set(normalizar(c.profesor), pid)
+        }
+        // Materia (por clave o nombre; crear si falta)
+        let mid =
+          (c.clave ? matClave.get(normalizar(c.clave)) : undefined) ??
+          (c.materia ? matNom.get(normalizar(c.materia)) : undefined) ??
+          null
+        if (!mid) {
+          const { data, error } = await supabase
+            .from('materias')
+            .insert({ nombre: c.materia.trim(), clave: c.clave.trim() || null })
+            .select('id').single()
+          if (error || !data) { errs++; continue }
+          mid = data.id as string
+          matC++
+          if (c.clave) matClave.set(normalizar(c.clave), mid)
+          matNom.set(normalizar(c.materia), mid)
+        }
+        // Aula (opcional; crear si falta)
+        let aid: string | null = null
+        if (c.aula.trim()) {
+          aid = aulaNom.get(normalizar(c.aula)) ?? null
+          if (!aid) {
+            const { data, error } = await supabase
+              .from('aulas').insert({ nombre: c.aula.trim() }).select('id').single()
+            if (!error && data) { aid = data.id as string; aulC++; aulaNom.set(normalizar(c.aula), aid) }
+          }
+        }
+        const key = `${pid}|${mid}|${c.dia_semana}|${c.hora_inicio}|${c.hora_fin}|${sem}`
+        if (existentes.has(key)) { omit++; continue }
+        existentes.add(key)
+        aInsertar.push({
+          profesor_id: pid, materia_id: mid, aula_id: aid, dia_semana: c.dia_semana,
+          hora_inicio: c.hora_inicio, hora_fin: c.hora_fin, semestre: sem,
+          grupo: c.grupo.trim() || null,
+        })
+      }
+
+      let ins = 0
+      for (let i = 0; i < aInsertar.length; i += 100) {
+        const lote = aInsertar.slice(i, i + 100)
+        const { error } = await supabase.from('horarios').insert(lote)
+        if (error) errs += lote.length
+        else ins += lote.length
+      }
+      setResultadoGuardar({
+        insertados: ins, omitidos: omit, profesoresCreados: profC,
+        materiasCreadas: matC, aulasCreadas: aulC, errores: errs,
+      })
+      if (ins > 0) toast.success(`${ins} clase(s) guardadas en el sistema.`)
+      else toast('No se insertó nada nuevo (ya existían).', { icon: 'ℹ️' })
+    } finally {
+      setGuardando(false)
+    }
+  }
+
   return (
     <AdminLayout breadcrumb={[{ label: 'Planeación' }]}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -275,6 +421,13 @@ export default function AdminPlaneacion() {
         <button onClick={() => void descargarReporte()} className="btn-secondary">
           <IconDownload className="h-4 w-4" />
           Descargar reporte
+        </button>
+        <button
+          onClick={() => { setResultadoGuardar(null); setGuardarOpen(true) }}
+          disabled={clases.length === 0}
+          className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+        >
+          Guardar en el sistema
         </button>
         {clases.length > 0 && (
           <button
@@ -417,6 +570,72 @@ export default function AdminPlaneacion() {
           onBorrar={borrarClase}
           onCerrar={() => setEditando(null)}
         />
+      )}
+
+      {guardarOpen && (
+        <Modal open title="Guardar plan en el sistema" onClose={() => !guardando && setGuardarOpen(false)}>
+          <div className="flex flex-col gap-4">
+            {!resultadoGuardar ? (
+              <>
+                {choques.length > 0 && (
+                  <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                    ⚠️ Tu plan tiene {choques.length} choque(s). Puedes guardar de todos modos, pero
+                    conviene resolverlos primero.
+                  </p>
+                )}
+                <p className="text-sm text-gray-600">
+                  Se agregarán al horario en vivo las {clases.length} clases del plan. Es{' '}
+                  <span className="font-semibold">aditivo y seguro</span>: solo inserta las que{' '}
+                  <span className="font-semibold">no existan ya</span> (mismo profesor, materia, día
+                  y hora), crea los profesores/materias/aulas que falten, y{' '}
+                  <span className="font-semibold">no borra ni toca</span> nada existente. Las
+                  asistencias no se afectan.
+                </p>
+                <div className="max-w-[10rem]">
+                  <label htmlFor="semg" className="mb-1 block text-xs font-semibold text-gray-500">
+                    Ciclo / semestre
+                  </label>
+                  <input
+                    id="semg"
+                    className="input !py-2"
+                    value={semestreGuardar}
+                    onChange={(e) => setSemestreGuardar(e.target.value)}
+                  />
+                </div>
+                {!esSesionSupabase && (
+                  <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                    Entra con «Acceso administrativo» (correo y contraseña) para poder guardar.
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <button onClick={() => setGuardarOpen(false)} disabled={guardando} className="btn-ghost flex-1">
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => void guardarEnSistema()}
+                    disabled={guardando || !esSesionSupabase}
+                    className="flex-1 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
+                  >
+                    {guardando ? 'Guardando…' : 'Guardar en el sistema'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
+                  {resultadoGuardar.insertados} clase(s) guardada(s).{' '}
+                  {resultadoGuardar.omitidos > 0 && `${resultadoGuardar.omitidos} ya existían (omitidas). `}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Nuevos creados: {resultadoGuardar.profesoresCreados} maestro(s),{' '}
+                  {resultadoGuardar.materiasCreadas} materia(s), {resultadoGuardar.aulasCreadas} aula(s).
+                  {resultadoGuardar.errores > 0 && ` ${resultadoGuardar.errores} con error.`}
+                </p>
+                <button onClick={() => setGuardarOpen(false)} className="btn-primary">Listo</button>
+              </>
+            )}
+          </div>
+        </Modal>
       )}
     </AdminLayout>
   )
