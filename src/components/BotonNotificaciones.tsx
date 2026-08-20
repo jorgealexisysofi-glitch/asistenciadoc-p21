@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { activarPush, desactivarPush, pushSoportado, suscripcionActual } from '../lib/push'
 
+/** ¿El dispositivo es iPhone/iPad? (iPadOS se hace pasar por Mac → se mira el touch) */
+function esIOS(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+}
+
 /** Tarjeta para activar/desactivar los recordatorios push del maestro */
 export default function BotonNotificaciones({ profesorId }: { profesorId: string }) {
   const [soportado] = useState(() => pushSoportado())
@@ -17,7 +24,19 @@ export default function BotonNotificaciones({ profesorId }: { profesorId: string
     }
   }, [soportado])
 
-  if (!soportado) return null
+  // Sin soporte de push: en iPhone se muestra un aviso; en el resto, nada.
+  if (!soportado) {
+    if (!esIOS()) return null
+    return (
+      <div className="card flex items-start gap-3 bg-udeg-azul-light">
+        <span className="text-lg" aria-hidden="true">🍎</span>
+        <p className="text-sm font-semibold text-udeg-azul">
+          En los dispositivos Apple no es posible enviar notificaciones. Registra tus asistencias a
+          tiempo.
+        </p>
+      </div>
+    )
+  }
 
   async function activar() {
     setTrabajando(true)
