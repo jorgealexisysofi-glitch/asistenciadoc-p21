@@ -12,7 +12,7 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.ts',
       registerType: 'autoUpdate',
-      includeAssets: ['icons/icon-192.png', 'icons/icon-512.png', 'offline.html'],
+      includeAssets: ['icons/icon-app.png', 'offline.html'],
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2}'],
       },
@@ -28,10 +28,9 @@ export default defineConfig({
         background_color: '#FFFFFF',
         theme_color: '#E87722',
         icons: [
-          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icons/icon-app.png', sizes: '512x512', type: 'image/png' },
           {
-            src: '/icons/icon-512.png',
+            src: '/icons/icon-app.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',

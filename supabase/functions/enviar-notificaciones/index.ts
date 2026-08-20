@@ -25,7 +25,7 @@ interface Pendiente {
   fecha: string
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
     const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -35,6 +35,46 @@ Deno.serve(async () => {
 
     webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE)
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
+
+    // ¿Modo prueba? (body {"prueba":true} o ?prueba=1) → manda a TODOS los
+    // suscritos su próxima clase, sin ventana de tiempo y sin registrar envío.
+    let prueba = false
+    try {
+      const url = new URL(req.url)
+      if (url.searchParams.get('prueba') === '1') prueba = true
+      const body = await req.json().catch(() => null)
+      if (body && body.prueba === true) prueba = true
+    } catch {
+      /* sin body */
+    }
+
+    if (prueba) {
+      const { data, error } = await supabase.rpc('get_notificaciones_prueba')
+      if (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      let enviadas = 0
+      let fallidas = 0
+      for (const n of (data ?? []) as { endpoint: string; p256dh: string; auth: string; titulo: string; cuerpo: string }[]) {
+        const payload = JSON.stringify({ title: n.titulo, body: n.cuerpo, url: '/home', tag: 'prueba' })
+        try {
+          await webpush.sendNotification({ endpoint: n.endpoint, keys: { p256dh: n.p256dh, auth: n.auth } }, payload)
+          enviadas++
+        } catch (e) {
+          fallidas++
+          const status = (e as { statusCode?: number }).statusCode
+          if (status === 404 || status === 410) {
+            await supabase.rpc('borrar_suscripcion', { p_endpoint: n.endpoint })
+          }
+        }
+      }
+      return new Response(JSON.stringify({ modo: 'prueba', enviadas, fallidas }), {
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
 
     const { data, error } = await supabase.rpc('get_notificaciones_pendientes')
     if (error) {
