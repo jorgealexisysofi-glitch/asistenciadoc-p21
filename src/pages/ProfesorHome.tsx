@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Layout from '../components/Layout'
 import EstadoBadge from '../components/EstadoBadge'
+import BotonNotificaciones from '../components/BotonNotificaciones'
 import { Skeleton, SkeletonCards } from '../components/Skeleton'
 import { useAuth } from '../hooks/useAuth'
 import { horaActual, hoyISO, supabase } from '../lib/supabase'
@@ -155,6 +156,13 @@ export default function ProfesorHome() {
           >
             Validar asistencia ahora
           </Link>
+
+          {/* Activar recordatorios push (solo si el navegador los soporta) */}
+          {profesorId && (
+            <div className="mt-5">
+              <BotonNotificaciones profesorId={profesorId} />
+            </div>
+          )}
 
           {/* Últimos registros */}
           <section className="mt-6">

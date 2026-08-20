@@ -82,6 +82,50 @@ registerRoute(
   })
 )
 
+// --- Web Push: mostrar el recordatorio recibido -----------------------------
+interface PushPayload {
+  title?: string
+  body?: string
+  url?: string
+  tag?: string
+}
+
+self.addEventListener('push', (event: PushEvent) => {
+  let datos: PushPayload = {}
+  try {
+    if (event.data) datos = event.data.json() as PushPayload
+  } catch {
+    if (event.data) datos = { body: event.data.text() }
+  }
+  event.waitUntil(
+    self.registration.showNotification(datos.title ?? 'AsistenciaDoc', {
+      body: datos.body ?? '',
+      icon: '/logo-prepa21.svg',
+      badge: '/favicon.svg',
+      tag: datos.tag,
+      data: { url: datos.url ?? '/validar' },
+    })
+  )
+})
+
+self.addEventListener('notificationclick', (event: NotificationEvent) => {
+  event.notification.close()
+  const url = (event.notification.data?.url as string) || '/'
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientes) => {
+        for (const cliente of clientes) {
+          if ('focus' in cliente) {
+            void (cliente as WindowClient).navigate(url)
+            return (cliente as WindowClient).focus()
+          }
+        }
+        return self.clients.openWindow(url)
+      })
+  )
+})
+
 // --- Red de seguridad: si una navegación falla por completo, mostrar la
 //     página "Sin conexión" precacheada en lugar del error del navegador.
 setCatchHandler(async ({ request }) => {
