@@ -20,20 +20,46 @@ export interface Crumb {
   to?: string
 }
 
-const NAV = [
-  { to: '/admin', label: 'Dashboard', icon: IconHome, end: true, monitor: true },
-  { to: '/admin/tablero', label: 'Clases ahora', icon: IconCalendar, end: false, monitor: true },
-  { to: '/admin/profesores', label: 'Profesores', icon: IconUsers, end: false, monitor: false },
-  { to: '/admin/grupos', label: 'Grupos', icon: IconUsers, end: false, monitor: false },
-  { to: '/admin/planeacion', label: 'Planeación', icon: IconCalendar, end: false, monitor: false },
-  { to: '/admin/reportes', label: 'Reportes', icon: IconChart, end: false, monitor: true },
-  { to: '/admin/dias-no-laborables', label: 'Días no laborables', icon: IconCalendar, end: false, monitor: false },
-  { to: '/admin/bitacora', label: 'Bitácora', icon: IconChart, end: false, monitor: false },
-  { to: '/admin/aulas', label: 'Aulas / Beacons', icon: IconBuilding, end: false, monitor: false },
-  { to: '/admin/horarios', label: 'Importar horarios', icon: IconUpload, end: false, monitor: false },
-  { to: '/admin/asignar-aulas', label: 'Asignar aulas', icon: IconBuilding, end: false, monitor: false },
-  { to: '/admin/ciclos', label: 'Respaldos', icon: IconDownload, end: false, monitor: false },
+const NAV_GRUPOS = [
+  {
+    titulo: 'Asistencia en vivo',
+    items: [
+      { to: '/admin', label: 'Dashboard', icon: IconHome, end: true, monitor: true },
+      { to: '/admin/tablero', label: 'Clases ahora', icon: IconCalendar, end: false, monitor: true },
+    ],
+  },
+  {
+    titulo: 'Profesores y reportes',
+    items: [
+      { to: '/admin/profesores', label: 'Profesores', icon: IconUsers, end: false, monitor: false },
+      { to: '/admin/reportes', label: 'Reportes', icon: IconChart, end: false, monitor: true },
+      { to: '/admin/bitacora', label: 'Bitácora', icon: IconChart, end: false, monitor: false },
+    ],
+  },
+  {
+    titulo: 'Horarios y grupos',
+    items: [
+      { to: '/admin/planeacion', label: 'Planeación', icon: IconCalendar, end: false, monitor: false },
+      { to: '/admin/horarios', label: 'Importar horarios', icon: IconUpload, end: false, monitor: false },
+      { to: '/admin/grupos', label: 'Grupos', icon: IconUsers, end: false, monitor: false },
+      { to: '/admin/asignar-aulas', label: 'Asignar aulas', icon: IconBuilding, end: false, monitor: false },
+    ],
+  },
+  {
+    titulo: 'Configuración',
+    items: [
+      { to: '/admin/aulas', label: 'Aulas / Beacons', icon: IconBuilding, end: false, monitor: false },
+      { to: '/admin/dias-no-laborables', label: 'Días no laborables', icon: IconCalendar, end: false, monitor: false },
+      { to: '/admin/ciclos', label: 'Respaldos', icon: IconDownload, end: false, monitor: false },
+    ],
+  },
 ]
+
+/** Estilo de cada enlace del menú (activo / inactivo) */
+const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+    isActive ? 'bg-udeg-naranja-light text-udeg-naranja' : 'text-gray-600 hover:bg-gray-100'
+  }`
 
 interface AdminLayoutProps {
   /** Migas tras la raíz "Admin" (la raíz se agrega sola) */
@@ -45,14 +71,6 @@ export default function AdminLayout({ breadcrumb, children }: AdminLayoutProps) 
   const { profesor, user, esSesionSupabase, esMonitor, signOut } = useAuth()
   const navigate = useNavigate()
   const [abierto, setAbierto] = useState(false)
-
-  // El monitor (solo lectura) ve un menú reducido y sin acciones de edición.
-  const navVisible = esMonitor ? NAV.filter((n) => n.monitor) : NAV
-
-  // Diagnóstico temporal: revisar en la consola del navegador si hay sesión de
-  // Supabase Auth. Si esSesionSupabase es false, entraste por código + NIP (no
-  // por correo + contraseña) y por eso no aparece "Cambiar contraseña".
-  console.log('[AdminLayout] esSesionSupabase:', esSesionSupabase, 'user:', user?.email ?? null)
 
   const nombreAdmin = profesor
     ? `${profesor.nombre} ${profesor.apellidos}`
@@ -83,41 +101,38 @@ export default function AdminLayout({ breadcrumb, children }: AdminLayoutProps) 
         </div>
       )}
 
-      <nav className="flex-1 space-y-1 px-3 py-4" aria-label="Navegación admin">
-        {navVisible.map(({ to, label, icon: Icon, end }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            onClick={() => setAbierto(false)}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
-                isActive
-                  ? 'bg-udeg-naranja-light text-udeg-naranja'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`
-            }
-          >
-            <Icon className="h-5 w-5 shrink-0" />
-            {label}
-          </NavLink>
-        ))}
+      <nav className="flex-1 space-y-4 px-3 py-4" aria-label="Navegación admin">
+        {NAV_GRUPOS.map((grupo) => {
+          const items = esMonitor ? grupo.items.filter((i) => i.monitor) : grupo.items
+          if (items.length === 0) return null
+          return (
+            <div key={grupo.titulo}>
+              <p className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                {grupo.titulo}
+              </p>
+              <div className="space-y-1">
+                {items.map(({ to, label, icon: Icon, end }) => (
+                  <NavLink key={to} to={to} end={end} onClick={() => setAbierto(false)} className={navLinkClass}>
+                    <Icon className="h-5 w-5 shrink-0" />
+                    {label}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+
         {/* Solo admins con sesión de Supabase Auth pueden cambiar su contraseña */}
         {esSesionSupabase && !esMonitor && (
-          <NavLink
-            to="/admin/cambiar-password"
-            onClick={() => setAbierto(false)}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
-                isActive
-                  ? 'bg-udeg-naranja-light text-udeg-naranja'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`
-            }
-          >
-            <IconKey className="h-5 w-5 shrink-0" />
-            Cambiar contraseña
-          </NavLink>
+          <div>
+            <p className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+              Cuenta
+            </p>
+            <NavLink to="/admin/cambiar-password" onClick={() => setAbierto(false)} className={navLinkClass}>
+              <IconKey className="h-5 w-5 shrink-0" />
+              Cambiar contraseña
+            </NavLink>
+          </div>
         )}
       </nav>
 
