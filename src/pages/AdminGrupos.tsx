@@ -6,7 +6,7 @@ import { SkeletonTable } from '../components/Skeleton'
 import { IconChart, IconUpload } from '../components/icons'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
-import { normalizar, parseRangoHorario } from '../lib/asistencia'
+import { derivarGrupo, normalizar, parseRangoHorario } from '../lib/asistencia'
 import type { Grupo } from '../types'
 
 type Fila = (string | number)[]
@@ -21,26 +21,26 @@ const DIAS_COL = [
   { dia: 5, alias: ['v', 'viernes'] },
 ]
 
-/** Una asignación de grupo lista para enviar a la RPC */
-interface Asignacion {
-  codigo: string
-  dia_semana: number
-  hora_inicio: string
-  hora_fin: string
-  grupo: string
+interface Mapeo {
+  codigo: number
+  nombre: number
+  grupo: number
+  dias: number[]
 }
 
-/** Detecta las columnas necesarias (código, grupo y los días) por encabezado */
-function detectarColumnas(cabeceras: Fila): { codigo: number; grupo: number; dias: number[] } | null {
+/** Detecta las columnas necesarias por encabezado normalizado */
+function detectarColumnas(cabeceras: Fila): Mapeo | null {
   const cab = cabeceras.map(normalizar)
   const buscar = (pred: (h: string) => boolean) => cab.findIndex(pred)
   const codigo = buscar((h) => h === 'codigo')
+  const nombre = buscar((h) => h === 'nombre')
   const grupo = buscar(
     (h) => h === 'grupo' || h === 'gpo' || h.includes('grupo') || h.includes('seccion')
   )
   const dias = DIAS_COL.map(({ alias }) => buscar((h) => alias.includes(h)))
-  if (codigo < 0 || grupo < 0 || dias.some((d) => d < 0)) return null
-  return { codigo, grupo, dias }
+  // Se exige grupo, los días, y al menos código o nombre para ubicar al profesor
+  if (grupo < 0 || dias.some((d) => d < 0) || (codigo < 0 && nombre < 0)) return null
+  return { codigo, nombre, grupo, dias }
 }
 
 export default function AdminGrupos() {
@@ -50,11 +50,11 @@ export default function AdminGrupos() {
   const [error, setError] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState('')
 
-  // Importación (actualiza el grupo sobre horarios existentes)
+  // Importación (asigna grupo sobre horarios existentes, sin borrar)
   const [nombreArchivo, setNombreArchivo] = useState('')
   const [importando, setImportando] = useState(false)
   const [errorImport, setErrorImport] = useState<string | null>(null)
-  const [resultado, setResultado] = useState<{ actualizados: number; filas: number } | null>(null)
+  const [resultado, setResultado] = useState<{ actualizados: number; sinMatch: number } | null>(null)
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -88,6 +88,7 @@ export default function AdminGrupos() {
 
     setImportando(true)
     try {
+      // 1. Leer el Excel/CSV
       const XLSX = await import('xlsx')
       const buf = await file.arrayBuffer()
       const esCSV = /\.csv$/i.test(file.name)
@@ -99,7 +100,6 @@ export default function AdminGrupos() {
       } else {
         wb = XLSX.read(buf, { type: 'array' })
       }
-
       const hoja =
         wb.SheetNames.find((n) => HOJAS_VALIDAS.includes(n.trim().toLowerCase())) ??
         (wb.SheetNames.length === 1 ? wb.SheetNames[0] : null)
@@ -120,47 +120,80 @@ export default function AdminGrupos() {
       const map = detectarColumnas(filas[0])
       if (!map) {
         setErrorImport(
-          'No se detectaron las columnas necesarias (Código, Grupo y los días L/M/I/J/V o LUNES…VIERNES). Verifica que el archivo traiga la columna de grupo.'
+          'No se detectaron las columnas necesarias (Grupo/Sección, los días y Código o Nombre del profesor). Verifica el archivo.'
         )
         return
       }
 
-      // Construir las asignaciones (una por clase con grupo)
-      const asignaciones: Asignacion[] = []
+      // 2. Catálogos para emparejar (igual que el importador)
+      const [resProf, resHor] = await Promise.all([
+        supabase.from('profesores').select('id, nombre, apellidos, numero_empleado'),
+        supabase
+          .from('horarios')
+          .select('id, profesor_id, dia_semana, hora_inicio, hora_fin')
+          .eq('activo', true),
+      ])
+      if (resProf.error || resHor.error) {
+        setErrorImport('No se pudieron cargar los horarios existentes. ¿Entraste como administrador?')
+        return
+      }
+      const profPorCodigo = new Map<string, string>()
+      const profPorNombre = new Map<string, string>()
+      for (const p of resProf.data ?? []) {
+        if (p.numero_empleado) profPorCodigo.set(normalizar(p.numero_empleado), p.id)
+        profPorNombre.set(normalizar(`${p.nombre} ${p.apellidos}`), p.id)
+        profPorNombre.set(normalizar(`${p.apellidos} ${p.nombre}`), p.id)
+      }
+      const clave = (pid: string, dia: number, hi: string, hf: string) => `${pid}|${dia}|${hi}|${hf}`
+      const horarioPorClave = new Map<string, string>()
+      for (const h of resHor.data ?? []) {
+        horarioPorClave.set(clave(h.profesor_id, h.dia_semana, h.hora_inicio, h.hora_fin), h.id)
+      }
+
+      // 3. Recorrer las filas y armar {horario_id → grupo}
+      const asignaciones = new Map<string, string>()
+      let sinMatch = 0
       for (let i = 1; i < filas.length; i++) {
         const fila = filas[i]
-        const codigo = String(fila[map.codigo] ?? '').trim()
-        const grupo = String(fila[map.grupo] ?? '').trim()
-        if (!codigo || !grupo) continue
+        const grupo = derivarGrupo(fila[map.grupo])
+        if (!grupo) continue
+        const codigo = map.codigo >= 0 ? String(fila[map.codigo] ?? '').trim() : ''
+        const nombre = map.nombre >= 0 ? String(fila[map.nombre] ?? '').trim() : ''
+        const profesorId =
+          (codigo ? profPorCodigo.get(normalizar(codigo)) : undefined) ??
+          (nombre ? profPorNombre.get(normalizar(nombre)) : undefined) ??
+          null
+        if (!profesorId) continue
+
         for (let d = 0; d < DIAS_COL.length; d++) {
           const texto = String(fila[map.dias[d]] ?? '').trim()
           if (!texto) continue
           const rango = parseRangoHorario(texto)
           if (!rango) continue
-          asignaciones.push({
-            codigo,
-            dia_semana: DIAS_COL[d].dia,
-            hora_inicio: rango.inicio,
-            hora_fin: rango.fin,
-            grupo,
-          })
+          const hid = horarioPorClave.get(clave(profesorId, DIAS_COL[d].dia, rango.inicio, rango.fin))
+          if (hid) asignaciones.set(hid, grupo)
+          else sinMatch++
         }
       }
 
-      if (asignaciones.length === 0) {
-        setErrorImport('No se encontraron filas con código y grupo válidos.')
+      if (asignaciones.size === 0) {
+        setErrorImport(
+          'No se pudo emparejar ninguna clase con los horarios ya cargados. ¿Corresponde el archivo al ciclo importado?'
+        )
         return
       }
 
-      const { data: total, error: errRpc } = await supabase.rpc('asignar_grupos_por_carga', {
-        p_filas: asignaciones,
+      // 4. Aplicar (solo actualiza la columna grupo)
+      const payload = [...asignaciones].map(([horario_id, grupo]) => ({ horario_id, grupo }))
+      const { data: total, error: errRpc } = await supabase.rpc('set_grupos_horarios', {
+        p_asignaciones: payload,
       })
       if (errRpc) {
         setErrorImport(`No se pudieron asignar los grupos: ${errRpc.message}`)
         return
       }
       setNombreArchivo(file.name)
-      setResultado({ actualizados: (total as number) ?? 0, filas: asignaciones.length })
+      setResultado({ actualizados: (total as number) ?? 0, sinMatch })
       toast.success(`${(total as number) ?? 0} clase(s) actualizada(s) con su grupo.`)
       await cargar()
     } catch {
@@ -181,15 +214,15 @@ export default function AdminGrupos() {
         Grupos de alumnos y su horario semanal. Toca un grupo para verlo e imprimirlo.
       </p>
 
-      {/* Importar/actualizar grupos desde el Excel (sin borrar nada) */}
+      {/* Rescatar/asignar grupos desde el Excel (sin borrar nada) */}
       <section className="card mt-5">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">
           Rescatar grupos desde el Excel
         </h2>
         <p className="mt-1 text-sm text-gray-600">
-          Sube el mismo archivo de cargas (con la columna de grupo). Se asigna el grupo a los
-          horarios que <span className="font-semibold">ya existen</span> —emparejando por código
-          de profesor, día y hora— sin borrar ni duplicar nada. Tus asistencias no se tocan.
+          Sube el mismo archivo de cargas (con la columna «Grupo/Sección»). Se asigna el grupo a
+          los horarios que <span className="font-semibold">ya existen</span> —emparejando por
+          profesor, día y hora— sin borrar ni duplicar nada. Tus asistencias no se tocan.
         </p>
 
         {!esSesionSupabase && (
@@ -221,9 +254,9 @@ export default function AdminGrupos() {
         )}
         {resultado && (
           <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
-            Se asignó grupo a {resultado.actualizados} de {resultado.filas} clases del archivo.
-            {resultado.actualizados < resultado.filas &&
-              ' Las que no coincidieron probablemente no están cargadas como horario activo.'}
+            Se asignó grupo a {resultado.actualizados} clase(s).
+            {resultado.sinMatch > 0 &&
+              ` (${resultado.sinMatch} del archivo no coincidieron con un horario cargado.)`}
           </p>
         )}
       </section>

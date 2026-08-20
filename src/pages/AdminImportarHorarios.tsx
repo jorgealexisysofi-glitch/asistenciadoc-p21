@@ -5,7 +5,7 @@ import Modal from '../components/Modal'
 import { IconTrash, IconUpload } from '../components/icons'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
-import { normalizar, parseRangoHorario } from '../lib/asistencia'
+import { derivarGrupo, normalizar, parseRangoHorario } from '../lib/asistencia'
 
 type Fila = (string | number)[]
 
@@ -317,8 +317,9 @@ export default function AdminImportarHorarios() {
         }
       }
 
-      // Grupo (si el archivo trae la columna)
-      const grupo = mapeo.grupo >= 0 ? String(fila[mapeo.grupo] ?? '').trim() : ''
+      // Grupo (si el archivo trae la columna): se deriva el grupo limpio del
+      // valor compuesto "grado - grupo - turno - CRN" → "6 A1 M".
+      const grupo = mapeo.grupo >= 0 ? derivarGrupo(fila[mapeo.grupo]) : ''
 
       // Un horario por cada día con contenido
       for (const { col, dia } of conDias) {

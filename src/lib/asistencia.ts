@@ -104,6 +104,23 @@ export function normalizar(texto: unknown): string {
     .replace(/\s+/g, ' ')
 }
 
+/**
+ * Deriva el grupo de alumnos de un valor tipo "6 - A1 - M - 553276"
+ * (grado - grupo - turno - CRN/sección): quita el último token si es un id
+ * (numérico o 'SEC…') y une el resto → "6 A1 M". "1 - E1" → "1 E1".
+ */
+export function derivarGrupo(valor: unknown): string {
+  const partes = String(valor ?? '')
+    .split('-')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (partes.length === 0) return ''
+  const ultimo = partes[partes.length - 1]
+  const esId = /^\d+$/.test(ultimo) || /^sec\d*/i.test(ultimo)
+  const tokens = esId && partes.length > 1 ? partes.slice(0, -1) : partes
+  return tokens.join(' ')
+}
+
 const DIAS_TEXTO: Record<string, number> = {
   lunes: 1,
   martes: 2,
