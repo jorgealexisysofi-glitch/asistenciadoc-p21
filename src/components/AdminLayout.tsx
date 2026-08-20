@@ -23,6 +23,7 @@ const NAV = [
   { to: '/admin', label: 'Dashboard', icon: IconHome, end: true, monitor: true },
   { to: '/admin/tablero', label: 'Clases ahora', icon: IconCalendar, end: false, monitor: true },
   { to: '/admin/profesores', label: 'Profesores', icon: IconUsers, end: false, monitor: false },
+  { to: '/admin/grupos', label: 'Grupos', icon: IconUsers, end: false, monitor: false },
   { to: '/admin/reportes', label: 'Reportes', icon: IconChart, end: false, monitor: true },
   { to: '/admin/dias-no-laborables', label: 'Días no laborables', icon: IconCalendar, end: false, monitor: false },
   { to: '/admin/bitacora', label: 'Bitácora', icon: IconChart, end: false, monitor: false },

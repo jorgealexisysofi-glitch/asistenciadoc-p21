@@ -138,6 +138,14 @@ export interface HorarioProfesor {
   hora_inicio: string
   hora_fin: string
   semestre: string
+  /** Solo en el horario de un grupo: nombre del profesor de esa clase */
+  profesor_nombre?: string
+}
+
+/** Fila devuelta por la RPC `get_grupos` */
+export interface Grupo {
+  grupo: string
+  clases: number
 }
 
 /** Fila devuelta por la RPC `get_historial_profesor` */

@@ -23,6 +23,8 @@ import AdminTablero from './pages/AdminTablero'
 import AdminActa from './pages/AdminActa'
 import AdminDiasNoLaborables from './pages/AdminDiasNoLaborables'
 import AdminBitacora from './pages/AdminBitacora'
+import AdminGrupos from './pages/AdminGrupos'
+import AdminHorarioGrupo from './pages/AdminHorarioGrupo'
 
 export default function App() {
   return (
@@ -132,6 +134,22 @@ export default function App() {
             element={
               <ProtectedRoute requireRol="admin">
                 <AdminHorarioProfesor />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/grupos"
+            element={
+              <ProtectedRoute requireRol="admin">
+                <AdminGrupos />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/grupo/:grupo"
+            element={
+              <ProtectedRoute requireRol="admin">
+                <AdminHorarioGrupo />
               </ProtectedRoute>
             }
           />

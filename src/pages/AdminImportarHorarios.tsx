@@ -37,6 +37,8 @@ interface Mapeo {
   cve: number
   /** -1 si el archivo no trae columna de aula */
   aula: number
+  /** -1 si el archivo no trae columna de grupo */
+  grupo: number
   dias: Record<ColDia, number>
 }
 
@@ -54,6 +56,10 @@ function detectarColumnas(cabeceras: Fila): Mapeo | null {
   const materia = buscar((h) => h === 'materia')
   const cve = buscar((h) => h === 'cve materia' || (h.includes('cve') && h.includes('materia')))
   const aula = buscar((h) => h === 'aula')
+  // Grupo (opcional): 'grupo', 'gpo', 'seccion', 'grado y grupo'…
+  const grupo = buscar(
+    (h) => h === 'grupo' || h === 'gpo' || h.includes('grupo') || h.includes('seccion')
+  )
   const dias = {
     L: buscar((h) => DIAS[0].alias.includes(h)),
     M: buscar((h) => DIAS[1].alias.includes(h)),
@@ -69,7 +75,7 @@ function detectarColumnas(cabeceras: Fila): Mapeo | null {
   ) {
     return null
   }
-  return { codigo, nombre, materia, cve, aula, dias }
+  return { codigo, nombre, materia, cve, aula, grupo, dias }
 }
 
 export default function AdminImportarHorarios() {
@@ -221,6 +227,7 @@ export default function AdminImportarHorarios() {
       hora_inicio: string
       hora_fin: string
       semestre: string
+      grupo: string | null
     }[] = []
 
     for (let i = 1; i < filas.length; i++) {
@@ -310,6 +317,9 @@ export default function AdminImportarHorarios() {
         }
       }
 
+      // Grupo (si el archivo trae la columna)
+      const grupo = mapeo.grupo >= 0 ? String(fila[mapeo.grupo] ?? '').trim() : ''
+
       // Un horario por cada día con contenido
       for (const { col, dia } of conDias) {
         const texto = String(fila[mapeo.dias[col]] ?? '').trim()
@@ -327,6 +337,7 @@ export default function AdminImportarHorarios() {
           hora_inicio: rango.inicio,
           hora_fin: rango.fin,
           semestre: semestre.trim() || '2026-A',
+          grupo: grupo || null,
         })
       }
     }
@@ -477,6 +488,7 @@ export default function AdminImportarHorarios() {
                   ['Materia', mapeo.materia],
                   ['Cve. Materia', mapeo.cve],
                   ['Aula', mapeo.aula],
+                  ['Grupo', mapeo.grupo],
                   ...DIAS.map(({ col }) => [`Día ${col}`, mapeo.dias[col]]),
                 ] as [string, number][]
               ).map(([etq, idx]) => (
