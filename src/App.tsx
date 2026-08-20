@@ -26,6 +26,7 @@ import AdminBitacora from './pages/AdminBitacora'
 import AdminGrupos from './pages/AdminGrupos'
 import AdminHorarioGrupo from './pages/AdminHorarioGrupo'
 import AdminCiclos from './pages/AdminCiclos'
+import AdminPlaneacion from './pages/AdminPlaneacion'
 
 export default function App() {
   return (
@@ -159,6 +160,14 @@ export default function App() {
             element={
               <ProtectedRoute requireRol="admin">
                 <AdminCiclos />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/planeacion"
+            element={
+              <ProtectedRoute requireRol="admin">
+                <AdminPlaneacion />
               </ProtectedRoute>
             }
           />

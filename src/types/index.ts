@@ -148,6 +148,25 @@ export interface Grupo {
   clases: number
 }
 
+/** Una clase en el planificador de horarios (un bloque día+hora) */
+export interface ClasePlan {
+  id: string
+  codigo: string
+  profesor: string
+  materia: string
+  clave: string
+  carrera: string
+  crn: string
+  grupo: string
+  tipo: string
+  aula: string
+  horas: string
+  /** 1=Lunes … 5=Viernes */
+  dia_semana: number
+  hora_inicio: string
+  hora_fin: string
+}
+
 /** Ciclo archivado (respaldo) — RPC `get_archivos` */
 export interface ArchivoCiclo {
   id: string
