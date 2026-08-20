@@ -8,8 +8,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "deploy": "vite build && vercel --prod",
-    "icons": "node scripts/generate-icons.mjs"
+    "deploy": "vite build && vercel --prod"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
@@ -29,7 +28,6 @@
     "typescript": "~5.8.3",
     "vite": "^6.3.5",
     "vite-plugin-pwa": "^1.0.0",
-    "workbox-background-sync": "^7.4.1",
     "workbox-cacheable-response": "^7.4.1",
     "workbox-core": "^7.4.1",
     "workbox-expiration": "^7.4.1",

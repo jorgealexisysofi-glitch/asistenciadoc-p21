@@ -465,22 +465,13 @@ export default function ValidarAsistencia() {
                 )}
               </div>
             ) : (
-              <>
-                <button
-                  onClick={() => void confirmarAsistencia()}
-                  disabled={!beaconDetectado || working}
-                  className="btn-primary"
-                >
-                  {working ? 'Guardando…' : 'Confirmar asistencia'}
-                </button>
-                <button
-                  onClick={() => void registrar('manual', null)}
-                  disabled={working}
-                  className="btn-ghost"
-                >
-                  Registrar manualmente
-                </button>
-              </>
+              <button
+                onClick={() => void confirmarAsistencia()}
+                disabled={!beaconDetectado || working}
+                className="btn-primary"
+              >
+                {working ? 'Guardando…' : 'Confirmar asistencia'}
+              </button>
             )}
 
             {/* Firmar salida — DESACTIVADO por ahora (ver FIRMAR_SALIDA_HABILITADO) */}

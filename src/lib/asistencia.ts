@@ -3,16 +3,11 @@ import type { EstadoAsistencia } from '../types'
 /** Minutos de tolerancia tras la hora de inicio para contar como presente */
 export const TOLERANCIA_MIN = 10
 
-/**
- * Firmar salida al terminar la clase. DESACTIVADO por ahora: mientras sea
- * `false`, el botón aparece en gris con la etiqueta «Desactivado» y no hace
- * nada. Para habilitarlo en el futuro, cambia a `true` y vuelve a desplegar.
- */
+/** Firmar salida al terminar la clase (true = habilitado). */
 export const FIRMAR_SALIDA_HABILITADO: boolean = true
 
-/** Ventana para firmar salida: desde N min antes del fin y hasta N min después */
+/** La salida se puede firmar desde N min antes del fin de la clase. */
 export const SALIDA_ANTES_MIN = 30
-export const SALIDA_DESPUES_MIN = 30
 
 /**
  * Punto de control de prefectura (checador de kiosco, ruta /checador) en
@@ -80,12 +75,6 @@ export function saludo(): string {
   return 'Buenas noches'
 }
 
-/** Día de la semana de hoy en convención ISO (1=Lunes … 7=Domingo) */
-export function diaSemanaISO(): number {
-  const d = new Date().getDay()
-  return d === 0 ? 7 : d
-}
-
 /** Minutos desde ahora hasta una hora 'HH:MM[:SS]' de hoy (negativo si ya pasó) */
 export function minutosHasta(hora: string): number {
   const [h, m] = hora.split(':').map(Number)
@@ -119,28 +108,6 @@ export function derivarGrupo(valor: unknown): string {
   const esId = /^\d+$/.test(ultimo) || /^sec\d*/i.test(ultimo)
   const tokens = esId && partes.length > 1 ? partes.slice(0, -1) : partes
   return tokens.join(' ')
-}
-
-const DIAS_TEXTO: Record<string, number> = {
-  lunes: 1,
-  martes: 2,
-  miercoles: 3,
-  jueves: 4,
-  viernes: 5,
-  sabado: 6,
-  domingo: 7,
-}
-
-/** 'LUNES' / 'lun' / 1-7 → número 1=Lunes…7=Domingo (null si no se reconoce) */
-export function parseDiaSemana(valor: unknown): number | null {
-  if (valor == null || valor === '') return null
-  const n = Number(valor)
-  if (Number.isInteger(n) && n >= 1 && n <= 7) return n
-  const t = normalizar(valor)
-  for (const [nombre, dia] of Object.entries(DIAS_TEXTO)) {
-    if (t === nombre || nombre.startsWith(t) || t.startsWith(nombre.slice(0, 3))) return dia
-  }
-  return null
 }
 
 /** 'HH:MM-HH:MM' → { inicio, fin } en 'HH:MM:SS'; null si está mal formado */

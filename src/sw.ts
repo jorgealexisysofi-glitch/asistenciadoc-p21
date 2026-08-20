@@ -100,8 +100,7 @@ self.addEventListener('push', (event: PushEvent) => {
   event.waitUntil(
     self.registration.showNotification(datos.title ?? 'Asistencia Prepa 21', {
       body: datos.body ?? '',
-      icon: '/logo-prepa21.svg',
-      badge: '/favicon.svg',
+      icon: '/icons/icon-app.png',
       tag: datos.tag,
       data: { url: datos.url ?? '/validar' },
     })
