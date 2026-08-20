@@ -103,6 +103,11 @@ export default function AdminImportarHorarios() {
   const [textoConfirmar, setTextoConfirmar] = useState('')
   const [borrando, setBorrando] = useState(false)
 
+  // Eliminar duplicados
+  const [dupOpen, setDupOpen] = useState(false)
+  const [dupPreview, setDupPreview] = useState<{ eliminables: number; con_registros: number } | null>(null)
+  const [dupTrabajando, setDupTrabajando] = useState(false)
+
   const encabezados = filas[0] ?? []
   const columnas = useMemo(
     () => encabezados.map((h, i) => ({ indice: i, etiqueta: String(h ?? '').trim() || `Col ${i + 1}` })),
@@ -372,6 +377,35 @@ export default function AdminImportarHorarios() {
     setTextoConfirmar('')
   }
 
+  async function abrirDuplicados() {
+    setDupPreview(null)
+    setDupOpen(true)
+    const { data, error } = await supabase.rpc('preview_duplicados_horario')
+    if (error) {
+      toast.error('No se pudo analizar. ¿Entraste como administrador?')
+      setDupOpen(false)
+      return
+    }
+    const row = ((data ?? []) as { eliminables: number; con_registros: number }[])[0]
+    setDupPreview(row ?? { eliminables: 0, con_registros: 0 })
+  }
+
+  async function eliminarDuplicados() {
+    setDupTrabajando(true)
+    const { data, error } = await supabase.rpc('eliminar_duplicados_horario')
+    setDupTrabajando(false)
+    if (error) {
+      toast.error('No se pudieron eliminar los duplicados.')
+      return
+    }
+    const row = ((data ?? []) as { eliminados: number; conservados_con_registros: number }[])[0]
+    const n = row?.eliminados ?? 0
+    toast.success(
+      n === 0 ? 'No había duplicados que eliminar.' : `${n} horario(s) duplicado(s) eliminado(s).`
+    )
+    setDupOpen(false)
+  }
+
   async function confirmarDestructivo() {
     if (!destructivo) return
     setBorrando(true)
@@ -436,6 +470,13 @@ export default function AdminImportarHorarios() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => void abrirDuplicados()}
+            disabled={!esSesionSupabase}
+            className="rounded-xl border border-amber-200 bg-white px-4 py-2.5 text-sm font-semibold text-amber-700 transition-colors hover:bg-amber-50 disabled:opacity-50"
+          >
+            Eliminar duplicados
+          </button>
           <button
             onClick={() => setDestructivo({ tipo: 'maestros', paso: 1 })}
             className="rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
@@ -658,6 +699,57 @@ export default function AdminImportarHorarios() {
             >
               {borrando ? 'Eliminando…' : 'Eliminar todo'}
             </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal: eliminar duplicados (con vista previa, sin perder asistencias) */}
+      <Modal
+        open={dupOpen}
+        title="Eliminar horarios duplicados"
+        onClose={() => {
+          if (!dupTrabajando) setDupOpen(false)
+        }}
+      >
+        <div className="flex flex-col gap-4">
+          {!dupPreview ? (
+            <p className="text-sm text-gray-600">Analizando duplicados…</p>
+          ) : dupPreview.eliminables === 0 && dupPreview.con_registros === 0 ? (
+            <p className="text-sm text-gray-600">No se encontraron horarios duplicados. 🎉</p>
+          ) : (
+            <>
+              <p className="text-sm text-gray-600">
+                Se eliminarán{' '}
+                <span className="font-semibold text-gray-800">{dupPreview.eliminables}</span> copia(s)
+                duplicada(s) que <span className="font-semibold">no tienen ningún registro</span> de
+                asistencia. Siempre se conserva una copia de cada clase.
+              </p>
+              {dupPreview.con_registros > 0 && (
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                  ⚠️ {dupPreview.con_registros} copia(s) duplicada(s) tienen asistencias y{' '}
+                  <span className="font-semibold">no se tocarán</span> (para no perder datos). Si
+                  quieres depurarlas, hazlo con cuidado y de forma manual.
+                </p>
+              )}
+            </>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setDupOpen(false)}
+              disabled={dupTrabajando}
+              className="btn-ghost flex-1"
+            >
+              Cerrar
+            </button>
+            {dupPreview && dupPreview.eliminables > 0 && (
+              <button
+                onClick={() => void eliminarDuplicados()}
+                disabled={dupTrabajando}
+                className="flex-1 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+              >
+                {dupTrabajando ? 'Eliminando…' : `Eliminar ${dupPreview.eliminables} duplicado(s)`}
+              </button>
+            )}
           </div>
         </div>
       </Modal>
