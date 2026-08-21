@@ -198,33 +198,85 @@ export default function AdminReportes() {
       return
     }
     const XLSX = await import('xlsx')
-    const hojaResumen = resumen.map((r) => ({
-      Profesor: `${r.apellidos}, ${r.nombre}`,
-      Asistencias: r.presente,
-      Retardos: r.tarde,
-      Faltas: r.falta,
-      Justificadas: r.justificada,
-      'Total clases': r.total,
-      '% Asistencia': r.pct ?? '',
-      'Llegada promedio': r.avgLlegada ?? '',
-      'Salida promedio': r.avgSalida ?? '',
-    }))
-    const hojaDetalle = detalle.map((r) => ({
-      Fecha: formatFecha(r.fecha),
-      Día: DIAS[r.dia_semana] ?? '',
-      Profesor: `${r.profesor_apellidos}, ${r.profesor_nombre}`,
-      Materia: r.materia_nombre,
-      Aula: r.aula_nombre ?? 'Sin aula',
-      'Hora programada': `${formatHora(r.hora_inicio)}-${formatHora(r.hora_fin)}`,
-      'Hora real': r.hora_registro ? formatHoraRegistro(r.hora_registro) : '',
-      'Hora salida': r.hora_salida ? formatHoraRegistro(r.hora_salida) : '',
-      Estado: r.justificado ? 'Justificada' : etiquetaEstado[r.estado],
-      Motivo: r.motivo ?? '',
-      'Diferencia (min)': r.diferencia_min ?? '',
-    }))
+    const periodo = `${formatFecha(desde)} al ${formatFecha(hasta)}`
+    const generado = new Date().toLocaleString('es-MX', {
+      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    })
+    const filtroProf = busquedaProf.trim() || 'Todos los profesores'
+
+    // ---------- Hoja: Resumen por profesor ----------
+    const cabResumen = [
+      'Profesor', 'Asistencias', 'Retardos', 'Faltas', 'Justificadas',
+      'Total de clases', '% Asistencia', 'Llegada prom.', 'Salida prom.',
+    ]
+    const filasResumen = resumen.map((r) => [
+      `${r.apellidos}, ${r.nombre}`, r.presente, r.tarde, r.falta, r.justificada,
+      r.total, r.pct ?? '', r.avgLlegada ?? '', r.avgSalida ?? '',
+    ])
+    const tot = resumen.reduce(
+      (a, r) => ({
+        p: a.p + r.presente, ta: a.ta + r.tarde, f: a.f + r.falta,
+        j: a.j + r.justificada, to: a.to + r.total,
+      }),
+      { p: 0, ta: 0, f: 0, j: 0, to: 0 }
+    )
+    const baseTot = tot.to - tot.j
+    const pctTot = baseTot > 0 ? Math.round(((tot.p + tot.ta) / baseTot) * 100) : ''
+    const aoaResumen = [
+      ['REPORTE DE ASISTENCIA · Preparatoria 21'],
+      [`Periodo: ${periodo}`],
+      [`Profesor: ${filtroProf}     ·     Generado: ${generado}`],
+      [],
+      cabResumen,
+      ...filasResumen,
+      [],
+      ['TOTAL', tot.p, tot.ta, tot.f, tot.j, tot.to, pctTot, '', ''],
+    ]
+    const wsResumen = XLSX.utils.aoa_to_sheet(aoaResumen)
+    wsResumen['!cols'] = [
+      { wch: 34 }, { wch: 12 }, { wch: 10 }, { wch: 8 }, { wch: 12 },
+      { wch: 14 }, { wch: 12 }, { wch: 13 }, { wch: 13 },
+    ]
+    wsResumen['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 8 } },
+    ]
+
+    // ---------- Hoja: Detalle por clase ----------
+    const cabDetalle = [
+      'Fecha', 'Día', 'Profesor', 'Materia', 'Aula', 'Horario programado',
+      'Entrada', 'Salida', 'Estado', 'Min. de diferencia', 'Motivo',
+    ]
+    const filasDetalle = detalle.map((r) => [
+      formatFecha(r.fecha), DIAS[r.dia_semana] ?? '',
+      `${r.profesor_apellidos}, ${r.profesor_nombre}`, r.materia_nombre,
+      r.aula_nombre ?? 'Sin aula', `${formatHora(r.hora_inicio)}–${formatHora(r.hora_fin)}`,
+      r.hora_registro ? formatHoraRegistro(r.hora_registro) : '—',
+      r.hora_salida ? formatHoraRegistro(r.hora_salida) : '—',
+      r.justificado ? 'Justificada' : etiquetaEstado[r.estado],
+      r.diferencia_min ?? '', r.motivo ?? '',
+    ])
+    const aoaDetalle = [
+      ['DETALLE DE ASISTENCIA POR CLASE · Preparatoria 21'],
+      [`Periodo: ${periodo}     ·     Profesor: ${filtroProf}`],
+      [],
+      cabDetalle,
+      ...filasDetalle,
+    ]
+    const wsDetalle = XLSX.utils.aoa_to_sheet(aoaDetalle)
+    wsDetalle['!cols'] = [
+      { wch: 12 }, { wch: 6 }, { wch: 30 }, { wch: 34 }, { wch: 12 }, { wch: 18 },
+      { wch: 9 }, { wch: 9 }, { wch: 13 }, { wch: 16 }, { wch: 30 },
+    ]
+    wsDetalle['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } },
+    ]
+
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hojaResumen), 'Resumen')
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hojaDetalle), 'Detalle')
+    XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen')
+    XLSX.utils.book_append_sheet(wb, wsDetalle, 'Detalle por clase')
     XLSX.writeFile(wb, `Reporte_Asistencia_${desde}_a_${hasta}.xlsx`)
   }
 
