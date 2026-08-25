@@ -490,32 +490,26 @@ export default function AdminProfesores() {
       return
     }
     const XLSX = await import('xlsx')
-    const cab = ['Código', 'Profesor', 'Materia', 'Clave', 'Grupo', 'Aula', 'Edificio', 'Día', 'Hora inicio', 'Hora fin', 'Ciclo']
-    const cuerpo = filas.map((r) => [
-      r.codigo, r.profesor, r.materia, r.clave, r.grupo, r.aula, r.edificio,
-      DIAS[r.dia_semana - 1] ?? r.dia_semana, formatHora(r.hora_inicio), formatHora(r.hora_fin), r.semestre,
-    ])
-    const generado = new Date().toLocaleString('es-MX', {
-      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    // Formato IMPORTABLE (igual que el Excel de cargas): la fila 1 es el
+    // encabezado y las horas van en columnas por día. Una fila por clase-día.
+    const cab = [
+      'Código', 'Nombre', 'Materia', 'Cve. Materia', 'Grupo', 'Aula',
+      'LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO',
+    ]
+    const rows = filas.map((r) => {
+      const fila: (string | number)[] = [r.codigo, r.profesor, r.materia, r.clave, r.grupo, r.aula, '', '', '', '', '', '']
+      const idx = 5 + r.dia_semana // día 1 → LUNES (col 6) … día 6 → SABADO (col 11)
+      if (idx >= 6 && idx <= 11) fila[idx] = `${formatHora(r.hora_inicio)} - ${formatHora(r.hora_fin)}`
+      return fila
     })
-    const aoa = [
-      ['HORARIOS ACTUALES DE LOS MAESTROS · Preparatoria 21'],
-      [`Generado: ${generado}     ·     ${filas.length} clases`],
-      [],
-      cab,
-      ...cuerpo,
-    ]
-    const ws = XLSX.utils.aoa_to_sheet(aoa)
+    const ws = XLSX.utils.aoa_to_sheet([cab, ...rows])
     ws['!cols'] = [
-      { wch: 14 }, { wch: 30 }, { wch: 34 }, { wch: 10 }, { wch: 12 }, { wch: 12 },
-      { wch: 14 }, { wch: 11 }, { wch: 11 }, { wch: 10 }, { wch: 10 },
-    ]
-    ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } },
+      { wch: 14 }, { wch: 30 }, { wch: 34 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+      { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
     ]
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Horarios')
+    // Hoja "2026b": nombre que reconocen los importadores (horarios y grupos).
+    XLSX.utils.book_append_sheet(wb, ws, '2026b')
     XLSX.writeFile(wb, `Horarios_actuales_${new Date().toISOString().slice(0, 10)}.xlsx`)
   }
 

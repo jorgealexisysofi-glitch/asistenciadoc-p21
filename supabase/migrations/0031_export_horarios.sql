@@ -23,7 +23,7 @@ returns table (
 )
 language sql security definer set search_path = public stable as $$
   select coalesce(p.numero_empleado, ''),
-         (p.apellidos || ', ' || p.nombre),
+         (p.nombre || ' ' || p.apellidos),
          m.nombre,
          coalesce(m.clave, ''),
          coalesce(h.grupo, ''),
