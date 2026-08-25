@@ -14,6 +14,7 @@ import ValidarAsistencia from './pages/ValidarAsistencia'
 import Admin from './pages/Admin'
 import AdminProfesores from './pages/AdminProfesores'
 import AdminReportes from './pages/AdminReportes'
+import AdminReportesPasados from './pages/AdminReportesPasados'
 import AdminAulas from './pages/AdminAulas'
 import CambiarPasswordAdmin from './pages/CambiarPasswordAdmin'
 import AdminImportarHorarios from './pages/AdminImportarHorarios'
@@ -25,6 +26,8 @@ import AdminDiasNoLaborables from './pages/AdminDiasNoLaborables'
 import AdminBitacora from './pages/AdminBitacora'
 import AdminGrupos from './pages/AdminGrupos'
 import AdminHorarioGrupo from './pages/AdminHorarioGrupo'
+import AdminAulasHorario from './pages/AdminAulasHorario'
+import AdminHorarioAula from './pages/AdminHorarioAula'
 import AdminCiclos from './pages/AdminCiclos'
 import AdminPlaneacion from './pages/AdminPlaneacion'
 
@@ -100,6 +103,14 @@ export default function App() {
             }
           />
           <Route
+            path="/admin/reportes-pasados"
+            element={
+              <ProtectedRoute requireRol="monitor">
+                <AdminReportesPasados />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin/aulas"
             element={
               <ProtectedRoute requireRol="admin">
@@ -152,6 +163,22 @@ export default function App() {
             element={
               <ProtectedRoute requireRol="admin">
                 <AdminHorarioGrupo />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/horario-por-salon"
+            element={
+              <ProtectedRoute requireRol="admin">
+                <AdminAulasHorario />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/horario-aula/:id"
+            element={
+              <ProtectedRoute requireRol="admin">
+                <AdminHorarioAula />
               </ProtectedRoute>
             }
           />

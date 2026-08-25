@@ -167,6 +167,14 @@ export interface ClasePlan {
   hora_fin: string
 }
 
+/** Aula con clases (RPC `get_aulas_horario`) */
+export interface AulaHorario {
+  aula_id: string
+  aula_nombre: string
+  edificio: string | null
+  clases: number
+}
+
 /** Ciclo archivado (respaldo) — RPC `get_archivos` */
 export interface ArchivoCiclo {
   id: string

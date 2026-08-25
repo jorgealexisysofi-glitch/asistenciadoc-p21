@@ -33,6 +33,7 @@ const NAV_GRUPOS = [
     items: [
       { to: '/admin/profesores', label: 'Profesores', icon: IconUsers, end: false, monitor: false },
       { to: '/admin/reportes', label: 'Reportes', icon: IconChart, end: false, monitor: true },
+      { to: '/admin/reportes-pasados', label: 'Reportes pasados', icon: IconChart, end: false, monitor: true },
       { to: '/admin/bitacora', label: 'Bitácora', icon: IconChart, end: false, monitor: false },
     ],
   },
@@ -42,6 +43,7 @@ const NAV_GRUPOS = [
       { to: '/admin/planeacion', label: 'Planeación', icon: IconCalendar, end: false, monitor: false },
       { to: '/admin/horarios', label: 'Importar horarios', icon: IconUpload, end: false, monitor: false },
       { to: '/admin/grupos', label: 'Grupos', icon: IconUsers, end: false, monitor: false },
+      { to: '/admin/horario-por-salon', label: 'Horario por salón', icon: IconBuilding, end: false, monitor: false },
       { to: '/admin/asignar-aulas', label: 'Asignar aulas', icon: IconBuilding, end: false, monitor: false },
     ],
   },

@@ -36,18 +36,46 @@ Deno.serve(async (req) => {
     webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE)
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
 
-    // ¿Modo prueba? (body {"prueba":true} o ?prueba=1) → manda a TODOS los
-    // suscritos su próxima clase, sin ventana de tiempo y sin registrar envío.
-    let prueba = false
-    try {
-      const url = new URL(req.url)
-      if (url.searchParams.get('prueba') === '1') prueba = true
-      const body = await req.json().catch(() => null)
-      if (body && body.prueba === true) prueba = true
-    } catch {
-      /* sin body */
+    // Leer el body una sola vez (para modos prueba / broadcast).
+    let body: { prueba?: boolean; broadcast?: boolean; titulo?: string; cuerpo?: string; url?: string } | null = null
+    try { body = await req.json() } catch { /* sin body */ }
+    const params = new URL(req.url).searchParams
+
+    // ¿Modo broadcast? (body {"broadcast":true, "titulo":..., "cuerpo":...}) →
+    // manda un mensaje personalizado a TODOS los dispositivos suscritos.
+    if (body && body.broadcast === true) {
+      const { data, error } = await supabase.rpc('get_notificaciones_prueba')
+      if (error) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500, headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      const titulo = body.titulo ?? 'Asistencia Prepa 21'
+      const cuerpo = body.cuerpo ?? ''
+      const destino = body.url ?? '/home'
+      let enviadas = 0
+      let fallidas = 0
+      for (const n of (data ?? []) as { endpoint: string; p256dh: string; auth: string }[]) {
+        const payload = JSON.stringify({ title: titulo, body: cuerpo, url: destino, tag: 'aviso' })
+        try {
+          await webpush.sendNotification({ endpoint: n.endpoint, keys: { p256dh: n.p256dh, auth: n.auth } }, payload)
+          enviadas++
+        } catch (e) {
+          fallidas++
+          const status = (e as { statusCode?: number }).statusCode
+          if (status === 404 || status === 410) {
+            await supabase.rpc('borrar_suscripcion', { p_endpoint: n.endpoint })
+          }
+        }
+      }
+      return new Response(JSON.stringify({ modo: 'broadcast', enviadas, fallidas }), {
+        headers: { 'Content-Type': 'application/json' },
+      })
     }
 
+    // ¿Modo prueba? (body {"prueba":true} o ?prueba=1) → manda a TODOS los
+    // suscritos su próxima clase, sin ventana de tiempo y sin registrar envío.
+    const prueba = params.get('prueba') === '1' || (body != null && body.prueba === true)
     if (prueba) {
       const { data, error } = await supabase.rpc('get_notificaciones_prueba')
       if (error) {
