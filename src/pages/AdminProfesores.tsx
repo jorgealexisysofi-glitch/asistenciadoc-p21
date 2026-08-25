@@ -474,6 +474,51 @@ export default function AdminProfesores() {
     setWorking(false)
   }
 
+  async function exportarHorarios() {
+    const { data, error } = await supabase.rpc('get_horarios_export')
+    if (error) {
+      toast.error('No se pudieron cargar los horarios. ¿Iniciaste sesión como administrador?')
+      return
+    }
+    type Fila = {
+      codigo: string; profesor: string; materia: string; clave: string; grupo: string
+      aula: string; edificio: string; dia_semana: number; hora_inicio: string; hora_fin: string; semestre: string
+    }
+    const filas = (data ?? []) as Fila[]
+    if (filas.length === 0) {
+      toast.error('No hay horarios para exportar.')
+      return
+    }
+    const XLSX = await import('xlsx')
+    const cab = ['Código', 'Profesor', 'Materia', 'Clave', 'Grupo', 'Aula', 'Edificio', 'Día', 'Hora inicio', 'Hora fin', 'Ciclo']
+    const cuerpo = filas.map((r) => [
+      r.codigo, r.profesor, r.materia, r.clave, r.grupo, r.aula, r.edificio,
+      DIAS[r.dia_semana - 1] ?? r.dia_semana, formatHora(r.hora_inicio), formatHora(r.hora_fin), r.semestre,
+    ])
+    const generado = new Date().toLocaleString('es-MX', {
+      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    })
+    const aoa = [
+      ['HORARIOS ACTUALES DE LOS MAESTROS · Preparatoria 21'],
+      [`Generado: ${generado}     ·     ${filas.length} clases`],
+      [],
+      cab,
+      ...cuerpo,
+    ]
+    const ws = XLSX.utils.aoa_to_sheet(aoa)
+    ws['!cols'] = [
+      { wch: 14 }, { wch: 30 }, { wch: 34 }, { wch: 10 }, { wch: 12 }, { wch: 12 },
+      { wch: 14 }, { wch: 11 }, { wch: 11 }, { wch: 10 }, { wch: 10 },
+    ]
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } },
+    ]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Horarios')
+    XLSX.writeFile(wb, `Horarios_actuales_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
   const editandoExistente = editando && editando !== 'nuevo' ? editando : null
 
   return (
@@ -485,10 +530,16 @@ export default function AdminProfesores() {
             Personal docente, sus cuentas y horarios. Toca una fila para ver sus horarios.
           </p>
         </div>
-        <button onClick={abrirNuevo} className="btn-primary">
-          <IconPlus className="h-4 w-4" />
-          Agregar profesor
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => void exportarHorarios()} className="btn-secondary">
+            <IconDownload className="h-4 w-4" />
+            Descargar horarios
+          </button>
+          <button onClick={abrirNuevo} className="btn-primary">
+            <IconPlus className="h-4 w-4" />
+            Agregar profesor
+          </button>
+        </div>
       </div>
 
       {/* Contadores globales */}
