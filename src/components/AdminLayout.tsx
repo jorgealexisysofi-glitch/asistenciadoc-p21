@@ -70,9 +70,13 @@ interface AdminLayoutProps {
 }
 
 export default function AdminLayout({ breadcrumb, children }: AdminLayoutProps) {
-  const { profesor, user, esSesionSupabase, esMonitor, signOut } = useAuth()
+  const { profesor, user, esSesionSupabase, esMonitor, isAdmin, signOut } = useAuth()
   const navigate = useNavigate()
   const [abierto, setAbierto] = useState(false)
+
+  // Entró con código + NIP (no correo/contraseña): la base RECHAZA sus escrituras
+  // (RLS depende de auth.uid()), así que sus cambios no se guardan. Se avisa.
+  const soloConsulta = isAdmin && !esMonitor && !esSesionSupabase
 
   const nombreAdmin = profesor
     ? `${profesor.nombre} ${profesor.apellidos}`
@@ -233,7 +237,21 @@ export default function AdminLayout({ breadcrumb, children }: AdminLayoutProps) 
             ))}
           </ol>
         </nav>
-        <div className="mx-auto max-w-5xl">{children}</div>
+        <div className="mx-auto max-w-5xl">
+          {soloConsulta && (
+            <div className="mb-5 rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p className="font-bold">⚠️ Modo consulta — tus cambios NO se guardan</p>
+              <p className="mt-1">
+                Entraste con <span className="font-semibold">código + NIP</span>. La base de datos
+                solo acepta cambios cuando entras con <span className="font-semibold">correo y
+                contraseña</span>. Cierra sesión y entra por{' '}
+                <span className="font-semibold">«Acceso administrativo»</span> para editar
+                profesores, horarios o correcciones.
+              </p>
+            </div>
+          )}
+          {children}
+        </div>
       </main>
     </div>
   )
