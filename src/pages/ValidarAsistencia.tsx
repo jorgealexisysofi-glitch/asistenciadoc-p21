@@ -41,24 +41,36 @@ function esIOS(): boolean {
 // así que el aviso solo aplica en iOS SIN Web Bluetooth (Safari/Chrome iOS normales).
 const iosSinBluetooth = esIOS() && !('bluetooth' in navigator)
 
-// Caché de la clase activa: permite registrar sin conexión si la app la cargó
-// antes (mientras había red). Guarda la última clase activa vista hoy.
-const CLAVE_CACHE_HORARIO = 'asistenciadoc:horario-activo'
+// Caché del HORARIO COMPLETO del maestro: se guarda cada vez que hay internet,
+// para que sin conexión la app pueda determinar la clase actual (cualquiera, no
+// solo la última vista) y permitir registrar.
+const CLAVE_CACHE_HORARIO = 'asistenciadoc:horario-completo'
 
-function guardarCacheHorario(h: HorarioActivo) {
-  localStorage.setItem(CLAVE_CACHE_HORARIO, JSON.stringify({ fecha: hoyISO(), h }))
+function guardarCacheCompleto(profesorId: string, horarios: HorarioActivo[]) {
+  try {
+    localStorage.setItem(CLAVE_CACHE_HORARIO, JSON.stringify({ profesorId, horarios }))
+  } catch {
+    /* memoria llena: se ignora */
+  }
 }
 
-/** Lee la clase activa cacheada si es de hoy y la hora actual cae en su rango */
-function leerCacheHorario(): HorarioActivo | null {
+/** Clase activa AHORA según el horario completo cacheado (para uso offline) */
+function claseActivaDeCache(profesorId: string): HorarioActivo | null {
   try {
     const raw = localStorage.getItem(CLAVE_CACHE_HORARIO)
     if (!raw) return null
-    const { fecha, h } = JSON.parse(raw) as { fecha: string; h: HorarioActivo }
-    if (fecha !== hoyISO()) return null
+    const { profesorId: pid, horarios } = JSON.parse(raw) as {
+      profesorId: string
+      horarios: HorarioActivo[]
+    }
+    if (pid !== profesorId) return null
+    const dow = new Date().getDay()
+    const dia = dow === 0 ? 7 : dow // ISO: 1=Lunes … 7=Domingo
     const ahora = horaActual()
-    if (ahora >= h.hora_inicio && ahora < h.hora_fin) return h
-    return null
+    return (
+      horarios.find((h) => h.dia_semana === dia && ahora >= h.hora_inicio && ahora < h.hora_fin) ??
+      null
+    )
   } catch {
     return null
   }
@@ -111,7 +123,7 @@ export default function ValidarAsistencia() {
     // Sin conexión (o error de red): usar la clase cacheada si la app la cargó
     // antes mientras había red, para poder registrar igual.
     if (error) {
-      const cache = leerCacheHorario()
+      const cache = claseActivaDeCache(profesorId)
       setHorario(cache)
       setSalida(null)
       if (cache) {
@@ -131,7 +143,13 @@ export default function ValidarAsistencia() {
 
     const h = ((data ?? []) as HorarioActivo[])[0] ?? null
     setHorario(h)
-    if (h) guardarCacheHorario(h)
+
+    // Con internet: cachear el horario COMPLETO para poder registrar offline
+    // en cualquier clase (no solo la que esté activa en este momento).
+    const { data: completo } = await supabase.rpc('get_horario_completo', {
+      p_profesor_id: profesorId,
+    })
+    if (completo) guardarCacheCompleto(profesorId, completo as HorarioActivo[])
 
     if (h) {
       const { data: reg } = await supabase.rpc('get_registro_clase', {
