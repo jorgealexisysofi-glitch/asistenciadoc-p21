@@ -17,6 +17,8 @@ interface HorarioSemanalProps {
   nombre: string
   horarios: HorarioProfesor[]
   ciclo?: string
+  /** Si se pasa, cada clase es clicable y llama a esto (para abrir un detalle) */
+  onClaseClick?: (clase: HorarioProfesor) => void
 }
 
 /** Rejilla semanal imprimible (Lun–Vie, 07:00–21:00) para un profesor */
@@ -24,6 +26,7 @@ export default function HorarioSemanal({
   nombre,
   horarios,
   ciclo = '2026-A',
+  onClaseClick,
 }: HorarioSemanalProps) {
   const clases = horarios.filter((h) => h.dia_semana >= 1 && h.dia_semana <= 5)
   const fechaImpresion = new Date().toLocaleDateString('es-MX', {
@@ -98,22 +101,38 @@ export default function HorarioSemanal({
             const finMin = aMinutos(c.hora_fin)
             const filaInicio = Math.max(0, Math.floor(inicioMin / 60) - HORA_INICIO) + 2
             const filaFin = Math.min(HORAS.length, Math.ceil(finMin / 60) - HORA_INICIO) + 2
-            return (
-              <div
-                key={c.horario_id}
-                className="m-0.5 flex flex-col justify-center overflow-hidden rounded-md bg-udeg-naranja px-1.5 py-1 text-white"
-                style={{
-                  gridColumn: c.dia_semana + 1,
-                  gridRow: `${filaInicio} / ${Math.max(filaInicio + 1, filaFin)}`,
-                }}
-              >
-                <p className="truncate text-[11px] font-bold leading-tight">{c.materia_nombre}</p>
+            const detalle =
+              c.profesor_nombre ?? [c.grupo, c.aula_nombre].filter(Boolean).join(' · ')
+            const estilo = {
+              gridColumn: c.dia_semana + 1,
+              gridRow: `${filaInicio} / ${Math.max(filaInicio + 1, filaFin)}`,
+            }
+            const base =
+              'm-0.5 flex flex-col justify-center overflow-hidden rounded-md bg-udeg-naranja px-1.5 py-1 text-white'
+            const contenido = (
+              <>
+                <p className="line-clamp-2 text-[11px] font-bold leading-tight">{c.materia_nombre}</p>
                 <p className="truncate text-[10px] leading-tight opacity-90">
-                  {c.profesor_nombre ?? c.aula_nombre ?? 'Aula por asignar'}
+                  {detalle || 'Aula por asignar'}
                 </p>
                 <p className="text-[9px] leading-tight opacity-80">
                   {formatHora(c.hora_inicio)}–{formatHora(c.hora_fin)}
                 </p>
+              </>
+            )
+            return onClaseClick ? (
+              <button
+                key={c.horario_id}
+                type="button"
+                onClick={() => onClaseClick(c)}
+                style={estilo}
+                className={`${base} text-left transition hover:brightness-95 active:scale-[0.98]`}
+              >
+                {contenido}
+              </button>
+            ) : (
+              <div key={c.horario_id} style={estilo} className={base}>
+                {contenido}
               </div>
             )
           })}
