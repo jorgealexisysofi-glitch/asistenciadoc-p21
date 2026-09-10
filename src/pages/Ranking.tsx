@@ -77,16 +77,10 @@ export default function Ranking() {
                 >
                   {podio ? MEDALLAS[i] : i + 1}
                 </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-gray-800">
-                    {f.nombre} {f.apellidos}
-                    {esYo && <span className="ml-1 text-xs font-medium text-udeg-azul">(tú)</span>}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {f.asistencias} de {f.total_clases - f.justificadas} clases
-                    {f.justificadas > 0 ? ` · ${f.justificadas} justificada${f.justificadas > 1 ? 's' : ''}` : ''}
-                  </p>
-                </div>
+                <p className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-800">
+                  {f.nombre} {f.apellidos}
+                  {esYo && <span className="ml-1 text-xs font-medium text-udeg-azul">(tú)</span>}
+                </p>
                 <span className="shrink-0 text-lg font-bold text-udeg-azul tabular-nums">
                   {Number(f.pct).toFixed(0)}%
                 </span>
