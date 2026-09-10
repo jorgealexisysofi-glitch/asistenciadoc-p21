@@ -171,13 +171,13 @@ export default function ProfesorHome() {
             </div>
           )}
 
-          {/* Empleados del Mes — top 3 por % de asistencia (solo si ya hay datos) */}
+          {/* Maestro de la Semana — top 3 por % de asistencia (solo si ya hay datos) */}
           {top3.some((r) => r.asistencias > 0) && (
             <section className="card mt-6">
               <div className="flex items-center justify-between">
                 <h2 className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-gray-400">
                   <IconTrophy className="h-4 w-4 text-udeg-naranja" />
-                  Empleados del Mes
+                  Maestro de la Semana
                 </h2>
                 <Link
                   to="/ranking"

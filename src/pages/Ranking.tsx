@@ -8,10 +8,13 @@ import type { RankingItem } from '../types'
 
 const MEDALLAS = ['🥇', '🥈', '🥉']
 
-/** Nombre del mes en curso, capitalizado (para el encabezado) */
-function mesEnCurso(): string {
-  const m = new Date().toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
-  return m.charAt(0).toUpperCase() + m.slice(1)
+/** "Semana del 8 de septiembre" — lunes de la semana en curso */
+function semanaEnCurso(): string {
+  const d = new Date()
+  const dow = d.getDay() // 0=domingo … 6=sábado
+  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1)) // retrocede al lunes
+  const lunes = d.toLocaleDateString('es-MX', { day: 'numeric', month: 'long' })
+  return `Semana del ${lunes}`
 }
 
 export default function Ranking() {
@@ -40,7 +43,7 @@ export default function Ranking() {
         <h1 className="text-xl font-bold text-gray-900">Ranking de asistencia</h1>
       </div>
       <p className="mt-0.5 text-sm text-gray-500">
-        Top 10 maestros por porcentaje de asistencia · {mesEnCurso()}
+        Top 10 maestros por porcentaje de asistencia · {semanaEnCurso()}
       </p>
 
       {error && (
@@ -55,7 +58,7 @@ export default function Ranking() {
         </div>
       ) : !filas.some((f) => f.asistencias > 0) ? (
         <p className="card mt-5 text-sm text-gray-600">
-          Aún no hay asistencias registradas este mes. El ranking aparecerá en cuanto los
+          Aún no hay asistencias registradas esta semana. El ranking aparecerá en cuanto los
           maestros empiecen a validar su asistencia.
         </p>
       ) : (
@@ -91,7 +94,7 @@ export default function Ranking() {
       )}
 
       <p className="mt-4 text-xs text-gray-400">
-        El porcentaje se calcula sobre las clases que ya debieron impartirse en el mes, sin
+        El porcentaje se calcula sobre las clases que ya debieron impartirse esta semana, sin
         contar las justificadas. Empate: gana quien tenga más asistencias.
       </p>
     </Layout>

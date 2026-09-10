@@ -14,7 +14,7 @@ export const SALIDA_ANTES_MIN = 30
  * mantenimiento. Mientras sea `true`, la pantalla muestra un aviso y no permite
  * registrar. Para reactivarlo, cambia a `false` y vuelve a desplegar.
  */
-export const CHECADOR_EN_MANTENIMIENTO: boolean = true
+export const CHECADOR_EN_MANTENIMIENTO: boolean = false
 
 /** Estado del marcaje según la hora actual vs. la hora de inicio de la clase */
 export function calcularEstado(horaInicio: string): Exclude<EstadoAsistencia, 'ausente'> {
