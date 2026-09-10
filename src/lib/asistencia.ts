@@ -1,7 +1,7 @@
 import type { EstadoAsistencia } from '../types'
 
-/** Minutos de tolerancia tras la hora de inicio para contar como presente */
-export const TOLERANCIA_MIN = 10
+/** Minutos de tolerancia tras la hora de inicio para contar como presente (12 min = 1 min antes + 10 min después + 1 min tolerancia extra) */
+export const TOLERANCIA_MIN = 12
 
 /** Firmar salida al terminar la clase (true = habilitado). */
 export const FIRMAR_SALIDA_HABILITADO: boolean = true
