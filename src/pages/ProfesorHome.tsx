@@ -4,6 +4,7 @@ import Layout from '../components/Layout'
 import EstadoBadge from '../components/EstadoBadge'
 import BotonNotificaciones from '../components/BotonNotificaciones'
 import { Skeleton, SkeletonCards } from '../components/Skeleton'
+import { IconTrophy } from '../components/icons'
 import { useAuth } from '../hooks/useAuth'
 import { horaActual, hoyISO, supabase } from '../lib/supabase'
 import {
@@ -14,15 +15,18 @@ import {
   minutosHasta,
   saludo,
 } from '../lib/asistencia'
-import type { HistorialItem, ProximaClase } from '../types'
+import type { HistorialItem, ProximaClase, RankingItem } from '../types'
 
 /** Minutos de anticipación con que se avisa la siguiente clase */
 const AVISO_PROXIMA_MIN = 15
+
+const MEDALLAS = ['🥇', '🥈', '🥉']
 
 export default function ProfesorHome() {
   const { profesor } = useAuth()
   const [proxima, setProxima] = useState<ProximaClase | null>(null)
   const [registros, setRegistros] = useState<HistorialItem[]>([])
+  const [top3, setTop3] = useState<RankingItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   // Refresca cada 30 s para que el aviso de próxima clase aparezca solo
@@ -40,7 +44,7 @@ export default function ProfesorHome() {
 
     // RPCs SECURITY DEFINER: el profesor entra por NIP (sin sesión de Supabase),
     // así que pasamos su id en vez de depender de auth.uid().
-    const [resProxima, resRegistros] = await Promise.all([
+    const [resProxima, resRegistros, resRanking] = await Promise.all([
       supabase.rpc('get_proxima_clase', {
         p_profesor_id: profesorId,
         p_fecha: hoyISO(),
@@ -50,6 +54,7 @@ export default function ProfesorHome() {
         p_profesor_id: profesorId,
         p_limit: 5,
       }),
+      supabase.rpc('get_ranking_asistencia', { p_limit: 3 }),
     ])
 
     if (resProxima.error || resRegistros.error) {
@@ -58,6 +63,8 @@ export default function ProfesorHome() {
       setProxima(((resProxima.data ?? []) as ProximaClase[])[0] ?? null)
       setRegistros((resRegistros.data ?? []) as HistorialItem[])
     }
+    // El ranking es secundario: si falla, no bloquea la pantalla.
+    setTop3(resRanking.error ? [] : ((resRanking.data ?? []) as RankingItem[]))
     setLoading(false)
   }, [profesorId])
 
@@ -162,6 +169,48 @@ export default function ProfesorHome() {
             <div className="mt-5">
               <BotonNotificaciones profesorId={profesorId} />
             </div>
+          )}
+
+          {/* Empleados del Mes — top 3 por % de asistencia (solo si ya hay datos) */}
+          {top3.some((r) => r.asistencias > 0) && (
+            <section className="card mt-6">
+              <div className="flex items-center justify-between">
+                <h2 className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-gray-400">
+                  <IconTrophy className="h-4 w-4 text-udeg-naranja" />
+                  Empleados del Mes
+                </h2>
+                <Link
+                  to="/ranking"
+                  className="text-xs font-semibold text-udeg-azul hover:underline"
+                >
+                  Ver top 10 →
+                </Link>
+              </div>
+              <ol className="mt-3 flex flex-col gap-2">
+                {top3.map((r, i) => {
+                  const esYo = r.profesor_id === profesorId
+                  return (
+                    <li
+                      key={r.profesor_id}
+                      className={`flex items-center gap-3 rounded-xl px-3 py-2 ${
+                        i === 0 ? 'bg-udeg-naranja-light' : 'bg-gray-50'
+                      } ${esYo ? 'ring-2 ring-udeg-azul' : ''}`}
+                    >
+                      <span className="text-lg">{MEDALLAS[i]}</span>
+                      <p className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-800">
+                        {r.nombre} {r.apellidos}
+                        {esYo && (
+                          <span className="ml-1 text-xs font-medium text-udeg-azul">(tú)</span>
+                        )}
+                      </p>
+                      <span className="text-sm font-bold text-udeg-azul tabular-nums">
+                        {Number(r.pct).toFixed(0)}%
+                      </span>
+                    </li>
+                  )
+                })}
+              </ol>
+            </section>
           )}
 
           {/* Últimos registros */}

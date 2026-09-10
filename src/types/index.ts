@@ -150,6 +150,19 @@ export interface Grupo {
   clases: number
 }
 
+/** Fila del ranking de asistencia (RPC `get_ranking_asistencia`) */
+export interface RankingItem {
+  profesor_id: string
+  nombre: string
+  apellidos: string
+  total_clases: number
+  /** presente + tarde */
+  asistencias: number
+  justificadas: number
+  /** % de asistencia sobre (total - justificadas) */
+  pct: number
+}
+
 /** Una clase en el planificador de horarios (un bloque día+hora) */
 export interface ClasePlan {
   id: string

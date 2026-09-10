@@ -10,6 +10,7 @@ import CambiarNIP from './pages/CambiarNIP'
 import ProfesorHome from './pages/ProfesorHome'
 import MiHorario from './pages/MiHorario'
 import MiAsistencia from './pages/MiAsistencia'
+import Ranking from './pages/Ranking'
 import ValidarAsistencia from './pages/ValidarAsistencia'
 import Admin from './pages/Admin'
 import AdminProfesores from './pages/AdminProfesores'
@@ -75,6 +76,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <MiAsistencia />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ranking"
+            element={
+              <ProtectedRoute>
+                <Ranking />
               </ProtectedRoute>
             }
           />
