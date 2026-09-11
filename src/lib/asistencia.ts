@@ -1,4 +1,4 @@
-import type { EstadoAsistencia } from '../types'
+import type { EstadoAsistencia, MiResumenAsistencia } from '../types'
 
 /** Minutos de tolerancia tras la hora de inicio para contar como presente (12 min = 1 min antes + 10 min después + 1 min tolerancia extra) */
 export const TOLERANCIA_MIN = 12
@@ -15,6 +15,59 @@ export const SALIDA_ANTES_MIN = 30
  * registrar. Para reactivarlo, cambia a `false` y vuelve a desplegar.
  */
 export const CHECADOR_EN_MANTENIMIENTO: boolean = false
+
+/** Tono del mensaje personalizado de bienvenida (define color/ícono) */
+export type TonoMensaje = 'alerta' | 'aviso' | 'positivo'
+
+export interface MensajePersonalizado {
+  tono: TonoMensaje
+  texto: string
+}
+
+/** Mínimo de clases (sin contar justificadas) para opinar; con menos, no hay datos suficientes */
+const MIN_CLASES_PARA_MENSAJE = 3
+/** % de asistencia bajo el cual se considera "varias faltas" */
+const UMBRAL_FALTAS_PCT = 75
+/** % de tardanza (de las veces que asistió) a partir del cual se le avisa */
+const UMBRAL_TARDANZA_PCT = 30
+/** % de asistencia y de tardanza para felicitar */
+const UMBRAL_BIEN_PCT = 90
+const UMBRAL_BIEN_TARDANZA_PCT = 15
+
+/**
+ * Mensaje personalizado de bienvenida según el patrón de asistencia del
+ * maestro en los últimos días (RPC `get_mi_resumen_asistencia`): avisa si
+ * tiene varias faltas o llega tarde seguido, o lo felicita si va muy bien.
+ * `null` si no hay datos suficientes o está en zona neutra (no amerita aviso).
+ */
+export function mensajePersonalizado(r: MiResumenAsistencia | null): MensajePersonalizado | null {
+  if (!r) return null
+  const base = r.total_clases - r.justificadas
+  if (base < MIN_CLASES_PARA_MENSAJE) return null
+
+  const pct = r.pct ?? 0
+  const pctTardanza = r.pct_tardanza ?? 0
+
+  if (pct < UMBRAL_FALTAS_PCT) {
+    return {
+      tono: 'alerta',
+      texto: `Tienes ${r.faltas} falta${r.faltas === 1 ? '' : 's'} en las últimas 2 semanas (${pct.toFixed(0)}% de asistencia). Procura no faltar más — tu asistencia es importante.`,
+    }
+  }
+  if (pctTardanza >= UMBRAL_TARDANZA_PCT) {
+    return {
+      tono: 'aviso',
+      texto: `Llegas tarde con frecuencia (${r.tardes} de ${r.presentes + r.tardes} clases en las últimas 2 semanas). Procura llegar más temprano.`,
+    }
+  }
+  if (pct >= UMBRAL_BIEN_PCT && pctTardanza < UMBRAL_BIEN_TARDANZA_PCT) {
+    return {
+      tono: 'positivo',
+      texto: `¡Vas muy bien! Tu asistencia de las últimas 2 semanas es del ${pct.toFixed(0)}%. Sigue así 👏`,
+    }
+  }
+  return null
+}
 
 /** Estado del marcaje según la hora actual vs. la hora de inicio de la clase */
 export function calcularEstado(horaInicio: string): Exclude<EstadoAsistencia, 'ausente'> {

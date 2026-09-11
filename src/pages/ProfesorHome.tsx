@@ -12,10 +12,11 @@ import {
   formatFecha,
   formatHora,
   formatHoraRegistro,
+  mensajePersonalizado,
   minutosHasta,
   saludo,
 } from '../lib/asistencia'
-import type { HistorialItem, ProximaClase, RankingItem } from '../types'
+import type { HistorialItem, MiResumenAsistencia, ProximaClase, RankingItem } from '../types'
 
 /** Minutos de anticipación con que se avisa la siguiente clase */
 const AVISO_PROXIMA_MIN = 15
@@ -27,6 +28,7 @@ export default function ProfesorHome() {
   const [proxima, setProxima] = useState<ProximaClase | null>(null)
   const [registros, setRegistros] = useState<HistorialItem[]>([])
   const [top3, setTop3] = useState<RankingItem[]>([])
+  const [resumen, setResumen] = useState<MiResumenAsistencia | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   // Refresca cada 30 s para que el aviso de próxima clase aparezca solo
@@ -44,7 +46,7 @@ export default function ProfesorHome() {
 
     // RPCs SECURITY DEFINER: el profesor entra por NIP (sin sesión de Supabase),
     // así que pasamos su id en vez de depender de auth.uid().
-    const [resProxima, resRegistros, resRanking] = await Promise.all([
+    const [resProxima, resRegistros, resRanking, resResumen] = await Promise.all([
       supabase.rpc('get_proxima_clase', {
         p_profesor_id: profesorId,
         p_fecha: hoyISO(),
@@ -55,6 +57,7 @@ export default function ProfesorHome() {
         p_limit: 5,
       }),
       supabase.rpc('get_ranking_asistencia', { p_limit: 3 }),
+      supabase.rpc('get_mi_resumen_asistencia', { p_profesor_id: profesorId }),
     ])
 
     if (resProxima.error || resRegistros.error) {
@@ -63,8 +66,11 @@ export default function ProfesorHome() {
       setProxima(((resProxima.data ?? []) as ProximaClase[])[0] ?? null)
       setRegistros((resRegistros.data ?? []) as HistorialItem[])
     }
-    // El ranking es secundario: si falla, no bloquea la pantalla.
+    // Ranking y resumen son secundarios: si fallan, no bloquean la pantalla.
     setTop3(resRanking.error ? [] : ((resRanking.data ?? []) as RankingItem[]))
+    setResumen(
+      resResumen.error ? null : (((resResumen.data ?? []) as MiResumenAsistencia[])[0] ?? null)
+    )
     setLoading(false)
   }, [profesorId])
 
@@ -82,6 +88,9 @@ export default function ProfesorHome() {
     day: 'numeric',
     month: 'long',
   })
+
+  // Mensaje personalizado de bienvenida según el patrón de asistencia reciente
+  const mensaje = mensajePersonalizado(resumen)
 
   // Aviso: clase por empezar (≤15 min) o ya en curso
   const minParaInicio = proxima ? minutosHasta(proxima.hora_inicio) : null
@@ -121,6 +130,21 @@ export default function ProfesorHome() {
         </div>
       ) : (
         <>
+          {mensaje && (
+            <p
+              className={`mt-4 rounded-xl px-4 py-3 text-sm font-semibold ${
+                mensaje.tono === 'alerta'
+                  ? 'bg-red-50 text-red-700'
+                  : mensaje.tono === 'aviso'
+                    ? 'bg-amber-50 text-amber-700'
+                    : 'bg-emerald-50 text-emerald-700'
+              }`}
+            >
+              {mensaje.tono === 'alerta' ? '⚠️ ' : mensaje.tono === 'aviso' ? '⏰ ' : ''}
+              {mensaje.texto}
+            </p>
+          )}
+
           {(porEmpezar || enCurso) && (
             <p className="mt-4 flex items-center gap-2 rounded-xl bg-udeg-naranja-light px-4 py-3 text-sm font-semibold text-udeg-naranja">
               <span

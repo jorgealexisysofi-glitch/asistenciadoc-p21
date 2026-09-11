@@ -150,6 +150,20 @@ export interface Grupo {
   clases: number
 }
 
+/** Resumen propio de asistencia (RPC `get_mi_resumen_asistencia`) */
+export interface MiResumenAsistencia {
+  total_clases: number
+  presentes: number
+  tardes: number
+  /** Sin justificar */
+  faltas: number
+  justificadas: number
+  /** % de asistencia sobre (total - justificadas); null si no hay clases aún */
+  pct: number | null
+  /** % de las veces que asistió (presente+tarde) que llegó tarde; null si no ha asistido */
+  pct_tardanza: number | null
+}
+
 /** Fila del ranking de asistencia (RPC `get_ranking_asistencia`) */
 export interface RankingItem {
   profesor_id: string
