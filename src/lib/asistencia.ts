@@ -34,37 +34,83 @@ const UMBRAL_TARDANZA_PCT = 30
 const UMBRAL_BIEN_PCT = 90
 const UMBRAL_BIEN_TARDANZA_PCT = 15
 
+/** Hash simple y estable (no criptográfico) para elegir el mismo mensaje todo el día */
+function hashEstable(texto: string): number {
+  let h = 0
+  for (let i = 0; i < texto.length; i++) h = (h * 31 + texto.charCodeAt(i)) | 0
+  return Math.abs(h)
+}
+
+/** Elige una variante estable (mismo día + mismo maestro + mismo tono → mismo texto) */
+function elegir(pool: string[], semilla: string): string {
+  return pool[hashEstable(semilla) % pool.length]
+}
+
+const DICHOS_FALTAS = (faltas: number, pct: number) => {
+  const f = `${faltas} falta${faltas === 1 ? '' : 's'}`
+  return [
+    `Esta semana llevas ${f}, no olvides registrar tu asistencia — ¡te extrañamos en el salón! 👋`,
+    `"Camarón que se duerme, se lo lleva la corriente" 🦐 — llevas ${f} esta semana. ¡No dejes que se te escape el registro!`,
+    `Ánimo, pero con horario: tu asistencia esta semana va en ${pct.toFixed(0)}%. Recuerda registrar cada clase.`,
+    `Esta semana ha estado floja la asistencia (${pct.toFixed(0)}%). Como dicen, "más vale tarde que nunca"… ¡pero mejor a tiempo! 😉`,
+    `${f} esta semana. "El que no enseña, no aprende" — y el que no registra, no cuenta. ¡Te esperamos en tu próxima clase!`,
+  ]
+}
+
+const DICHOS_TARDANZA = (tardes: number, asis: number) => [
+  `Llegas tarde seguido esta semana (${tardes} de ${asis} clases). "Al que madruga, Dios lo ayuda" — unos minutos antes hacen la diferencia ⏰`,
+  `Vas justito de tiempo: ${tardes} de ${asis} registros fueron tarde esta semana. ¡Achícale un poco al paso!`,
+  `"Camarón que se duerme…" tú ya sabes 🦐 — procura llegar unos minutos antes a tus próximas clases.`,
+  `El reloj no perdona: ${tardes} llegada${tardes === 1 ? '' : 's'} tarde esta semana. ¡Un poquito más de prisa y listo!`,
+  `Esta semana el tiempo se te fue de las manos ${tardes} vece${tardes === 1 ? 'z' : 's'}. Nada grave, solo ponle un poco más de ganas al reloj ⏰`,
+]
+
+const DICHOS_PERFECTO = [
+  '¡Semana perfecta! Esta semana has asistido a todas tus clases. 🌟',
+  '"El que persevera, alcanza" — y tú esta semana alcanzaste el 100%. ¡Excelente! 🎉',
+  '100% de asistencia esta semana. ¡Así se hace! 👏',
+  'Ni una falta esta semana — de los que no se rajan. 💪',
+  'Semana redonda: asististe a todas tus clases. ¡Sigue así! ✨',
+]
+
+const DICHOS_BIEN = (pct: number) => [
+  `¡Vas muy bien! Tu asistencia esta semana es del ${pct.toFixed(0)}%. Sigue así 👏`,
+  `"El que persevera, alcanza" — llevas ${pct.toFixed(0)}% de asistencia esta semana. ¡Bien hecho!`,
+  `Semana sólida: ${pct.toFixed(0)}% de asistencia. ¡Que no se te baje el ritmo!`,
+  `Puntual y presente — así se construye una buena racha. ${pct.toFixed(0)}% esta semana 🙌`,
+  `Vas por buen camino: ${pct.toFixed(0)}% de asistencia esta semana. ¡Que siga la buena racha!`,
+]
+
 /**
  * Mensaje personalizado de bienvenida según el patrón de asistencia del
- * maestro en los últimos días (RPC `get_mi_resumen_asistencia`): avisa si
- * tiene varias faltas o llega tarde seguido, o lo felicita si va muy bien.
- * `null` si no hay datos suficientes o está en zona neutra (no amerita aviso).
+ * maestro esta semana (RPC `get_mi_resumen_asistencia`): avisa si tiene varias
+ * faltas o llega tarde seguido, o lo felicita si va muy bien. Elige entre
+ * varias frases (algunas con dichos) — la misma todo el día, para no
+ * cambiarle el mensaje cada vez que recarga. `null` si no hay datos
+ * suficientes o está en zona neutra (no amerita aviso).
  */
-export function mensajePersonalizado(r: MiResumenAsistencia | null): MensajePersonalizado | null {
+export function mensajePersonalizado(
+  r: MiResumenAsistencia | null,
+  profesorId?: string | null
+): MensajePersonalizado | null {
   if (!r) return null
   const base = r.total_clases - r.justificadas
   if (base < MIN_CLASES_PARA_MENSAJE) return null
 
   const pct = r.pct ?? 0
   const pctTardanza = r.pct_tardanza ?? 0
+  // Semilla estable por maestro + día, para que el mensaje no cambie a cada rato
+  const semilla = `${profesorId ?? ''}-${new Date().toISOString().slice(0, 10)}`
 
   if (pct < UMBRAL_FALTAS_PCT) {
-    return {
-      tono: 'alerta',
-      texto: `Tienes ${r.faltas} falta${r.faltas === 1 ? '' : 's'} en las últimas 2 semanas (${pct.toFixed(0)}% de asistencia). Procura no faltar más — tu asistencia es importante.`,
-    }
+    return { tono: 'alerta', texto: elegir(DICHOS_FALTAS(r.faltas, pct), semilla) }
   }
   if (pctTardanza >= UMBRAL_TARDANZA_PCT) {
-    return {
-      tono: 'aviso',
-      texto: `Llegas tarde con frecuencia (${r.tardes} de ${r.presentes + r.tardes} clases en las últimas 2 semanas). Procura llegar más temprano.`,
-    }
+    return { tono: 'aviso', texto: elegir(DICHOS_TARDANZA(r.tardes, r.presentes + r.tardes), semilla) }
   }
   if (pct >= UMBRAL_BIEN_PCT && pctTardanza < UMBRAL_BIEN_TARDANZA_PCT) {
-    return {
-      tono: 'positivo',
-      texto: `¡Vas muy bien! Tu asistencia de las últimas 2 semanas es del ${pct.toFixed(0)}%. Sigue así 👏`,
-    }
+    const pool = pct >= 100 && r.faltas === 0 ? DICHOS_PERFECTO : DICHOS_BIEN(pct)
+    return { tono: 'positivo', texto: elegir(pool, semilla) }
   }
   return null
 }

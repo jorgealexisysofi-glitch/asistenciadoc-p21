@@ -89,8 +89,8 @@ export default function ProfesorHome() {
     month: 'long',
   })
 
-  // Mensaje personalizado de bienvenida según el patrón de asistencia reciente
-  const mensaje = mensajePersonalizado(resumen)
+  // Mensaje personalizado de bienvenida según el patrón de asistencia esta semana
+  const mensaje = mensajePersonalizado(resumen, profesorId)
 
   // Aviso: clase por empezar (≤15 min) o ya en curso
   const minParaInicio = proxima ? minutosHasta(proxima.hora_inicio) : null

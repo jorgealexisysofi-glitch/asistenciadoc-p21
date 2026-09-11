@@ -1,18 +1,20 @@
 -- ============================================================================
 -- Migración: resumen propio de asistencia (para el mensaje personalizado)
 --
--- get_mi_resumen_asistencia(profesor_id, dias) → agregados del propio maestro
--- en los últimos N días (14 por defecto): total de clases, presentes, tardes,
+-- get_mi_resumen_asistencia(profesor_id, desde, hasta) → agregados del propio
+-- maestro en el periodo dado (por defecto, la SEMANA en curso: lunes → hoy,
+-- igual que get_ranking_asistencia): total de clases, presentes, tardes,
 -- faltas (sin justificar), justificadas, % de asistencia y % de tardanza
--- (de las veces que asistió, cuántas fueron tarde). Mismo cálculo base que el
--- ranking y los reportes. Se usa para el mensaje de bienvenida en /home.
+-- (de las veces que asistió, cuántas fueron tarde). Se usa para el mensaje de
+-- bienvenida en /home ("Esta semana...").
 --
 -- Ejecutar en: Supabase Dashboard → SQL Editor → New query → Run. Idempotente.
 -- ============================================================================
 
 create or replace function public.get_mi_resumen_asistencia(
   p_profesor_id uuid,
-  p_dias int default 14
+  p_desde date default null,
+  p_hasta date default null
 )
 returns table (
   total_clases int,
@@ -26,8 +28,8 @@ returns table (
 language sql security definer set search_path = public stable as $$
   with rango as (
     select
-      ((now() at time zone 'America/Mexico_City')::date - (greatest(p_dias, 1) - 1)) as desde,
-      (now() at time zone 'America/Mexico_City')::date as hasta
+      coalesce(p_desde, date_trunc('week', (now() at time zone 'America/Mexico_City'))::date) as desde,
+      coalesce(p_hasta, (now() at time zone 'America/Mexico_City')::date) as hasta
   ),
   dias as (
     select g::date as fecha
@@ -66,4 +68,4 @@ language sql security definer set search_path = public stable as $$
   from clases;
 $$;
 
-grant execute on function public.get_mi_resumen_asistencia(uuid, int) to anon, authenticated;
+grant execute on function public.get_mi_resumen_asistencia(uuid, date, date) to anon, authenticated;
